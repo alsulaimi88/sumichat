@@ -7,7 +7,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 APP_NAME="SumiChat"
-ICON_STYLE="${ICON_STYLE:-lotus}"  # classic, lotus, lotuschat, midnight or document
+ICON_STYLE="${ICON_STYLE:-garden}"  # any style listed at the top of tools/make_icon.swift
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"     # "-" means ad-hoc (this Mac only)
 BUILD="build"
 APP="$BUILD/$APP_NAME.app"
