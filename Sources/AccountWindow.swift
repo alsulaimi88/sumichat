@@ -9,6 +9,7 @@ final class AccountWindow {
     var onUnreadChange: (() -> Void)?
 
     private let updateButton = NSButton()
+    private let translateButton = NSPopUpButton(frame: .zero, pullsDown: true)
     private let layoutButton = NSButton()
     private let titlebarButtons = NSStackView()
     private let titlebarAccessory = NSTitlebarAccessoryViewController()
@@ -17,9 +18,9 @@ final class AccountWindow {
     /// Show the account name in the title once there's more than one account.
     var showsAccountName = false { didSet { updateTitle() } }
 
-    init(account: Account, notifier: Notifier, cascadeIndex: Int) {
+    init(account: Account, notifier: Notifier, translator: Translator, cascadeIndex: Int) {
         self.account = account
-        browser = BrowserController(account: account, notifier: notifier)
+        browser = BrowserController(account: account, notifier: notifier, translator: translator)
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1200, height: 800),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -45,7 +46,11 @@ final class AccountWindow {
         layoutButton.imagePosition = .imageLeading
         layoutButton.isHidden = true
 
-        for button in [updateButton, layoutButton] {
+        translateButton.bezelStyle = .recessed
+        translateButton.showsBorderOnlyWhileMouseInside = true
+        translateButton.isHidden = true
+
+        for button in [updateButton, translateButton, layoutButton] as [NSButton] {
             button.controlSize = .small
             button.font = .systemFont(ofSize: NSFont.smallSystemFontSize, weight: button === updateButton ? .semibold : .regular)
             titlebarButtons.addArrangedSubview(button)
@@ -99,8 +104,20 @@ final class AccountWindow {
         refreshTitlebarButtons()
     }
 
+    /// The Translate pull-down: `menu` holds its items (the first item is the button's face).
+    func configureTranslateButton(menu: NSMenu?) {
+        translateButton.isHidden = menu == nil
+        if let menu {
+            let face = NSMenuItem(title: "Translate", action: nil, keyEquivalent: "")
+            face.image = NSImage(systemSymbolName: "translate", accessibilityDescription: "Translate")
+            menu.insertItem(face, at: 0)
+            translateButton.menu = menu
+        }
+        refreshTitlebarButtons()
+    }
+
     private func refreshTitlebarButtons() {
-        titlebarAccessory.isHidden = updateButton.isHidden && layoutButton.isHidden
+        titlebarAccessory.isHidden = updateButton.isHidden && layoutButton.isHidden && translateButton.isHidden
         titlebarButtons.layoutSubtreeIfNeeded()
         titlebarButtons.setFrameSize(NSSize(width: titlebarButtons.fittingSize.width, height: 28))
     }

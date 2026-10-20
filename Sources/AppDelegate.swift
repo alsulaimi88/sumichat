@@ -3,8 +3,9 @@ import WebKit
 
 @main
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
-    static let appName = "SumiChat"
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
+    /// "SumiChat", or "SumiChat Dev" for test builds (see build.sh dev).
+    static let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "SumiChat"
 
     static func main() {
         let app = NSApplication.shared
@@ -19,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastActiveAccount: UUID?
     private let notifier = Notifier()
     private let updater = Updater()
+    private let translator = Translator()
 
     /// All accounts as tabs in one window (the default), or one window each.
     private enum Layout: String { case tabs, separate }
@@ -29,6 +31,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         notifier.setUp()
+        notifier.translator = translator
+        translator.onLanguageReady = { [weak self] language in
+            guard let self else { return }
+            notifier.showLanguageReady(language)
+            for accountWindow in windows.values {
+                accountWindow.browser.webView.evaluateJavaScript(
+                    "window.__sumiResetTranslations && window.__sumiResetTranslations()")
+            }
+        }
+        translator.onMissingLanguagesChanged = { [weak self] in self?.updateLayoutControls() }
+        notifier.onDownloadLanguage = { [weak self] code in
+            guard let self else { return }
+            Task { await self.translator.download(Locale.Language(identifier: code), over: self.currentWindow?.window) }
+        }
         notifier.onMessageClick = { [weak self] accountID, id in
             guard let self, let accountWindow = windows[accountID] else { return }
             show(accountWindow)
@@ -85,7 +101,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: Accounts
 
     private func open(_ account: Account, cascadeIndex: Int) {
-        let accountWindow = AccountWindow(account: account, notifier: notifier, cascadeIndex: cascadeIndex)
+        let accountWindow = AccountWindow(account: account, notifier: notifier, translator: translator,
+                                          cascadeIndex: cascadeIndex)
         accountWindow.onUnreadChange = { [weak self] in self?.updateDockBadge() }
         windows[account.id] = accountWindow
     }
@@ -126,9 +143,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                                 target: self, action: #selector(toggleLayout(_:)))
             accountWindow.configureUpdateButton(readyVersion: updater.readyVersion,
                                                 target: self, action: #selector(restartToUpdate(_:)))
+            accountWindow.configureTranslateButton(menu: Translator.isAvailable ? {
+                let menu = NSMenu()
+                MainMenu.translateItems(target: self, shortcuts: false,
+                                        missing: Array(translator.missingLanguages.values)).forEach(menu.addItem)
+                return menu
+            }() : nil)
         }
         NSApp.mainMenu = MainMenu.build(target: self, accounts: accounts, merged: merged,
-                                        updateReady: updater.readyVersion)
+                                        updateReady: updater.readyVersion,
+                                        missingLanguages: Array(translator.missingLanguages.values))
     }
 
     /// Saves the list and refreshes everything that shows account names.
@@ -292,6 +316,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func actualSize(_ sender: Any?) {
         currentWindow?.browser.webView.pageZoom = 1
+    }
+
+    // MARK: Translation
+
+    @objc func toggleChatTranslation(_ sender: Any?) {
+        guard let browser = currentWindow?.browser else { return }
+        browser.setChatTranslation(!browser.isTranslatingChat)
+    }
+
+    @objc func translateMyMessage(_ sender: Any?) {
+        guard let browser = currentWindow?.browser else { return }
+        Task { await browser.translateMyMessage() }
+    }
+
+    @objc func downloadLanguage(_ sender: NSMenuItem) {
+        guard let code = sender.representedObject as? String else { return }
+        Task { await translator.download(Locale.Language(identifier: code), over: currentWindow?.window) }
+    }
+
+    @objc func toggleNotificationTranslation(_ sender: Any?) {
+        Translator.translatesNotifications.toggle()
+    }
+
+    @objc func setTranslateTarget(_ sender: NSMenuItem) {
+        let code = sender.representedObject as? String ?? ""
+        Translator.targetCode = code.isEmpty ? nil : code
+        for accountWindow in windows.values {
+            accountWindow.browser.webView.evaluateJavaScript("window.__sumiResetTranslations && window.__sumiResetTranslations()")
+        }
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        switch menuItem.action {
+        case #selector(toggleChatTranslation(_:)):
+            menuItem.state = currentWindow?.browser.isTranslatingChat == true ? .on : .off
+        case #selector(toggleNotificationTranslation(_:)):
+            menuItem.state = Translator.translatesNotifications ? .on : .off
+        case #selector(setTranslateTarget(_:)):
+            let code = menuItem.representedObject as? String ?? ""
+            menuItem.state = code == (Translator.targetCode ?? "") ? .on : .off
+        default:
+            break
+        }
+        return true
     }
 
     @objc func checkForUpdates(_ sender: Any?) {

@@ -17,11 +17,15 @@ final class BrowserController: NSObject {
     var onUnreadCountChange: ((Int) -> Void)?
 
     private let notifier: Notifier
+    let translator: Translator
+    /// "Translate This Chat" is on for this account.
+    var isTranslatingChat = false
     private var downloadDestinations: [ObjectIdentifier: URL] = [:]
     private var titleObservation: NSKeyValueObservation?
 
-    init(account: Account, notifier: Notifier) {
+    init(account: Account, notifier: Notifier, translator: Translator) {
         self.notifier = notifier
+        self.translator = translator
         accountID = account.id
 
         let contentController = WKUserContentController()
@@ -47,6 +51,10 @@ final class BrowserController: NSObject {
         super.init()
 
         contentController.add(self, name: "notify")
+        contentController.add(self, name: "translate")
+        if Translator.isAvailable {
+            contentController.add(self, name: "translateMine") // the 🌐 button in the typing bar
+        }
         webView.navigationDelegate = self
         webView.uiDelegate = self
 
@@ -162,6 +170,10 @@ extension BrowserController: WKNavigationDelegate {
         download.delegate = self
     }
 
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if isTranslatingChat { setChatTranslation(true) } // the page was reloaded
+    }
+
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         reload()
     }
@@ -255,6 +267,15 @@ extension BrowserController: WKUIDelegate {
 
 extension BrowserController: WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "translateMine" {
+            Task { await translateMyMessage() }
+            return
+        }
+        if message.name == "translate",
+           let body = message.body as? [String: Any], let texts = body["texts"] as? [String] {
+            Task { await translateChatMessages(texts) }
+            return
+        }
         guard message.name == "notify",
               let body = message.body as? [String: Any],
               let id = body["id"] as? String else { return }

@@ -196,6 +196,67 @@
   .cta { margin: 96px 0 0; padding: 56px 24px; text-align: center; border-radius: 24px; background: linear-gradient(135deg, color-mix(in srgb, var(--green) 16%, var(--card)), color-mix(in srgb, var(--lotus) 18%, var(--card))); border: 1px solid var(--line); }
   .cta h2 { margin-top: 0; }
 
+  /* "New" pill above the headline */
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px; margin-top: 26px; padding: 6px 14px 6px 8px;
+    border-radius: 999px; border: 1px solid var(--line); background: var(--card); font-size: 14px;
+    text-decoration: none; color: var(--text); box-shadow: 0 1px 2px rgba(20, 10, 30, .05);
+  }
+  .pill b { background: var(--green); color: #fff; border-radius: 999px; padding: 2px 9px; font-size: 12px; letter-spacing: .02em; }
+  .pill:hover { border-color: var(--green); }
+
+  /* Translation spotlight */
+  section[id] { scroll-margin-top: 64px; }
+  .spotlight {
+    margin-top: 96px; padding: 64px 0; position: relative;
+    background:
+      radial-gradient(60% 80% at 15% 0%, color-mix(in srgb, var(--green) 14%, transparent), transparent 70%),
+      radial-gradient(50% 70% at 95% 100%, color-mix(in srgb, var(--lotus) 18%, transparent), transparent 70%),
+      var(--bg-soft);
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  }
+  .spotlight .wrap { display: grid; grid-template-columns: 1fr 1.05fr; gap: 56px; align-items: center; }
+  .spotlight h2 { font-size: clamp(34px, 5vw, 52px); margin: 12px 0 16px; }
+  .spotlight h2 span { background: linear-gradient(90deg, var(--green), var(--lotus)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .spotlight .lead2 { color: var(--muted); font-size: 19px; margin: 0 0 26px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 28px; }
+  .badge2 {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
+    background: var(--card); border: 1px solid var(--line); font-size: 14px; font-weight: 600;
+  }
+  .badge2 svg { width: 16px; height: 16px; color: var(--green); }
+  .points { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
+  .points li { display: grid; grid-template-columns: 36px 1fr; gap: 12px; align-items: start; }
+  .points .num { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; font-weight: 800; color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }
+  .points b { display: block; font-size: 17px; }
+  .points span { color: var(--muted); font-size: 15px; }
+  .powered { margin-top: 26px; font-size: 13px; color: var(--muted); }
+
+  .tr-demo { border-radius: 18px; overflow: hidden; border: 1px solid var(--line); background: var(--chat-bg); box-shadow: var(--shadow), 0 30px 60px rgba(20, 10, 30, .12); font-size: 14px; }
+  .tr-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--sidebar); border-bottom: 1px solid var(--line); }
+  .tr-head .avatar { width: 34px; height: 34px; font-size: 13px; }
+  .tr-head small { display: block; color: var(--muted); font-size: 12px; }
+  .tr-body { padding: 18px 16px 8px; display: flex; flex-direction: column; gap: 10px; }
+  .tr-body .bubble { max-width: 82%; }
+  .tr-line { margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(127, 127, 127, .3); font-style: italic; color: var(--muted); }
+  .tr-line::before { content: "🌐 "; font-style: normal; }
+  .tr-panel {
+    margin: 4px 16px 0 auto; width: min(320px, 92%); padding: 12px 14px; border-radius: 14px;
+    background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow);
+  }
+  .tr-panel .row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .tr-panel .lang { font-weight: 700; color: var(--text); }
+  .tr-panel .out { font-size: 15px; }
+  .tr-panel .use { margin-top: 10px; display: inline-block; background: var(--green); color: #fff; border-radius: 8px; padding: 5px 12px; font-size: 13px; font-weight: 600; }
+  .tr-composer { display: flex; align-items: center; gap: 6px; margin: 12px; padding: 8px 10px; border-radius: 24px; background: var(--sidebar); border: 1px solid var(--line); color: var(--muted); }
+  .tr-composer .plus { width: 30px; text-align: center; font-size: 22px; line-height: 1; }
+  .tr-composer .globe { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: var(--green); background: color-mix(in srgb, var(--green) 16%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 25%, transparent); }
+  .tr-composer .globe svg { width: 20px; height: 20px; }
+  .tr-composer .typed { flex: 1; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  @media (max-width: 860px) {
+    .spotlight .wrap { grid-template-columns: 1fr; gap: 36px; }
+  }
+
   footer { padding: 56px 0 48px; color: var(--muted); font-size: 14px; }
   footer .wrap { display: flex; flex-direction: column; gap: 10px; }
   footer a { color: var(--muted); }
@@ -207,6 +268,7 @@
   <div class="wrap">
     <a class="brand" href="#"><img src="icon.png" alt="">SumiChat</a>
     <ul>
+      <li class="hide-sm"><a href="#translate">Translate</a></li>
       <li class="hide-sm"><a href="#features">Features</a></li>
       <li><a href="#install">Install</a></li>
       <li class="hide-sm"><a href="#faq">FAQ</a></li>
@@ -217,7 +279,8 @@
 
 <main>
   <header class="hero wrap">
-    <img class="icon" src="icon.png" alt="SumiChat icon">
+    <img class="icon" src="icon.png" alt="SumiChat icon"><br>
+    <a class="pill" href="#translate"><b>NEW</b> On-device translation in SumiChat 1.2 →</a>
     <h1>Every file. Every chat.<br><span>Right on your Mac.</span></h1>
     <p class="lead">SumiChat puts WhatsApp Web in its own Mac window and downloads every file people send you. PDFs, spreadsheets, documents and voice notes go straight to your Downloads folder.</p>
     <div class="buttons">
@@ -277,6 +340,58 @@
     </div>
   </header>
 
+  <section id="translate" class="spotlight">
+    <div class="wrap">
+      <div>
+        <div class="eyebrow">New in 1.2 · Translation</div>
+        <h2>Talk to guests<br><span>in their language.</span></h2>
+        <p class="lead2">German, French, Arabic, Chinese and more. SumiChat translates incoming messages and your replies right on your Mac, using the translation built into macOS.</p>
+        <div class="badges">
+          <span class="badge2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg> Runs on your Mac</span>
+          <span class="badge2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg> Nothing sent anywhere</span>
+          <span class="badge2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg> Free, no account</span>
+        </div>
+        <ul class="points">
+          <li><span class="num">1</span><div><b>Read every message</b><span>Translate This Chat puts your language under each message, and keeps up as new ones arrive.</span></div></li>
+          <li><span class="num">2</span><div><b>Notifications you can read</b><span>A message from a guest in Germany shows up already translated, with the original below it.</span></div></li>
+          <li><span class="num">3</span><div><b>Reply in their language</b><span>Type in yours and click 🌐 next to +. SumiChat picks the chat's language and shows the translation so you can check it before sending.</span></div></li>
+        </ul>
+        <p class="powered">Powered by the on-device translation in macOS 26. Each language downloads once, only when you choose. Your messages stay end-to-end encrypted and never leave your Mac.</p>
+      </div>
+
+      <div class="tr-demo" role="img" aria-label="A chat with a German guest, translated into English, and a reply being translated into German">
+        <div class="tr-head">
+          <div class="avatar" style="background:#c76fa6">IN</div>
+          <div><b>Ines · Villa guest</b><small>online</small></div>
+        </div>
+        <div class="tr-body">
+          <div class="bubble">Hallo! Wann können wir morgen einchecken? Liebe Grüße, Ines
+            <div class="tr-line">Hello! When can we check in tomorrow? Best regards, Ines</div>
+            <time>10:58 am</time>
+          </div>
+          <div class="bubble out">Ab 15 Uhr. Der Code für die Tür kommt am Morgen per SMS.
+            <div class="tr-line">From 3 p.m. The door code will come by text in the morning.</div>
+            <time>11:02 am</time>
+          </div>
+          <div class="bubble">Perfekt, vielen Dank! 🙏
+            <div class="tr-line">Perfect, thank you very much! 🙏</div>
+            <time>11:03 am</time>
+          </div>
+        </div>
+        <div class="tr-panel">
+          <div class="row"><span>Translate my message</span><span>Into: <span class="lang">German</span></span></div>
+          <div class="out">Gern geschehen! Die Handtücher liegen im Schrank im Flur.</div>
+          <span class="use">Use Translation</span>
+        </div>
+        <div class="tr-composer">
+          <span class="plus">+</span>
+          <span class="globe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3z"/></svg></span>
+          <span class="typed">You're welcome! The towels are in the hallway cupboard.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section id="features" class="wrap">
     <div class="eyebrow">Features</div>
     <h2>Everything your chats need on a Mac</h2>
@@ -296,6 +411,11 @@
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="3"/><circle cx="18" cy="6" r="3" fill="currentColor"/></svg></div>
         <h3>All your accounts</h3>
         <p>Keep personal and business numbers open side by side, each in its own window with its own login. The Dock badge counts them all.</p>
+      </div>
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3z"/></svg></div>
+        <h3>Translate on your Mac</h3>
+        <p>Read guests' messages in your language, see translated notifications, and reply in theirs with the 🌐 button. All on-device: nothing is sent anywhere.</p>
       </div>
       <div class="card">
         <div class="ic pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.1-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"/></svg></div>
@@ -368,6 +488,10 @@
       <details>
         <summary>How does replying from a notification work?</summary>
         <p>Hover over a message notification and click <b>Reply</b>. SumiChat opens that chat in the background, checks it's the right one, and sends your message. If it can't be sure, it sends nothing, copies your text and tells you, so you can paste it yourself.</p>
+      </details>
+      <details>
+        <summary>How does translation work?</summary>
+        <p>SumiChat uses the translation built into macOS 26, on your Mac. Messages are never sent to a translation service. Click <b>Translate → Translate This Chat</b> to see translations under messages, or the 🌐 next to <b>+</b> to turn what you typed into the chat's language; you check it before it goes into the message box. The first time a language comes up, choose <b>Download</b> for it once.</p>
       </details>
       <details>
         <summary>Can I make calls?</summary>

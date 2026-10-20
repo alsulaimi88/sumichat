@@ -3,7 +3,8 @@ import AppKit
 /// The menu bar. The Edit menu matters: without it Cmd+C / Cmd+V don't work in the web view.
 @MainActor
 enum MainMenu {
-    static func build(target: AppDelegate, accounts: [Account], merged: Bool, updateReady: String?) -> NSMenu {
+    static func build(target: AppDelegate, accounts: [Account], merged: Bool, updateReady: String?,
+                      missingLanguages: [Locale.Language]) -> NSMenu {
         let name = AppDelegate.appName
         let main = NSMenu()
 
@@ -52,6 +53,11 @@ enum MainMenu {
         view.addItem(withTitle: "Enter Full Screen", action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f")
             .keyEquivalentModifierMask = [.command, .control]
 
+        if Translator.isAvailable {
+            let translate = submenu(in: main, title: "Translate")
+            translateItems(target: target, shortcuts: true, missing: missingLanguages).forEach(translate.addItem)
+        }
+
         let window = submenu(in: main, title: "Window")
         window.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         window.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
@@ -71,6 +77,42 @@ enum MainMenu {
         NSApp.windowsMenu = window
 
         return main
+    }
+
+    /// Translation commands, used in the menu bar and in each window's Translate button.
+    static func translateItems(target: AppDelegate, shortcuts: Bool, missing: [Locale.Language]) -> [NSMenuItem] {
+        let chat = item("Translate This Chat", #selector(AppDelegate.toggleChatTranslation(_:)),
+                        shortcuts ? "t" : "", [.command, .shift], target)
+        let mine = item("Translate My Message…", #selector(AppDelegate.translateMyMessage(_:)),
+                        shortcuts ? "m" : "", [.command, .shift], target)
+        let notifications = item("Translate Notifications", #selector(AppDelegate.toggleNotificationTranslation(_:)),
+                                 "", [], target)
+
+        let into = NSMenuItem(title: "Translate Into", action: nil, keyEquivalent: "")
+        let languages = NSMenu(title: "Translate Into")
+        let mac = Locale.current.language
+        let system = item("My Mac's Language (\(Translator.displayName(mac)))",
+                          #selector(AppDelegate.setTranslateTarget(_:)), "", [], target)
+        system.representedObject = ""
+        languages.addItem(system)
+        languages.addItem(.separator())
+        for code in Translator.commonLanguages {
+            let entry = item(Translator.displayName(Locale.Language(identifier: code)),
+                             #selector(AppDelegate.setTranslateTarget(_:)), "", [], target)
+            entry.representedObject = code
+            languages.addItem(entry)
+        }
+        into.submenu = languages
+
+        // Languages seen in messages that aren't downloaded yet. Downloading only starts here.
+        let downloads = missing.sorted { Translator.displayName($0) < Translator.displayName($1) }.map { language in
+            let entry = item("Download \(Translator.displayName(language)) for Translation…",
+                             #selector(AppDelegate.downloadLanguage(_:)), "", [], target)
+            entry.representedObject = language.languageCode?.identifier
+            return entry
+        }
+
+        return [chat, mine, .separator(), notifications, into] + (downloads.isEmpty ? [] : [.separator()] + downloads)
     }
 
     private static func submenu(in main: NSMenu, title: String) -> NSMenu {

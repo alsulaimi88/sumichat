@@ -9,6 +9,7 @@ people send you, PDFs included.
 - Shows macOS notifications for new messages, with a **Reply** box (click one to jump to the chat)
 - Several accounts side by side (**File → New Account…**), each with its own window and login (macOS 14+)
 - Puts the unread count on the Dock icon and in the window title
+- On-device translation (macOS 26+): translated notifications, **Translate This Chat**, and a 🌐 button next to **+** that turns your message into the chat's language
 - Lets you attach files and record voice notes
 - Stays signed in between launches; closing the window keeps it running in the Dock
 - Updates itself with one click, through [Sparkle](https://sparkle-project.org)
@@ -20,6 +21,7 @@ Runs on Apple silicon and Intel Macs with macOS 13 or later.
 ```bash
 ./build.sh            # builds build/SumiChat.app
 ./build.sh install    # also copies it to /Applications
+./build.sh dev        # builds "SumiChat Dev" (own app ID and login) to test next to the real app
 ./package.sh          # makes dist/SumiChat.pkg and dist/SumiChat.dmg for testing
 ```
 

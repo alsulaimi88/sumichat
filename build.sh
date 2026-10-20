@@ -2,6 +2,8 @@
 # Builds build/SumiChat.app for Apple silicon and Intel Macs.
 #   ./build.sh            signed for this Mac only
 #   ./build.sh install    also copies it to /Applications
+#   ./build.sh dev        builds "SumiChat Dev" (its own app ID, login and settings, no update
+#                         checks) and copies it to /Applications, for testing next to the real app
 # release.sh sets SIGN_IDENTITY to your "Developer ID Application" certificate so it opens on any Mac.
 # FEED_URL overrides where Sparkle looks for updates (used to test updates locally).
 set -euo pipefail
@@ -65,6 +67,22 @@ sign "$FW/Updater.app"
 sign "$APP/Contents/Frameworks/Sparkle.framework"
 sign --entitlements Resources/SumiChat.entitlements "$APP"
 echo "Built $APP"
+
+if [ "${1:-}" = "dev" ]; then
+  DEV_APP="$BUILD/$APP_NAME Dev.app"
+  rm -rf "$DEV_APP"
+  ditto "$APP" "$DEV_APP"
+  /usr/libexec/PlistBuddy \
+    -c "Set :CFBundleIdentifier com.sumi.chat.dev" \
+    -c "Set :CFBundleName $APP_NAME Dev" -c "Set :CFBundleDisplayName $APP_NAME Dev" \
+    -c "Set :SUEnableAutomaticChecks false" -c "Set :SUAutomaticallyUpdate false" \
+    "$DEV_APP/Contents/Info.plist"
+  sign --entitlements Resources/SumiChat.entitlements "$DEV_APP"
+  osascript -e "quit app id \"com.sumi.chat.dev\"" 2>/dev/null || true
+  rm -rf "/Applications/$APP_NAME Dev.app"
+  ditto "$DEV_APP" "/Applications/$APP_NAME Dev.app"
+  echo "Installed /Applications/$APP_NAME Dev.app"
+fi
 
 if [ "${1:-}" = "install" ]; then
   osascript -e "quit app \"$APP_NAME\"" 2>/dev/null || true

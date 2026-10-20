@@ -10,6 +10,12 @@ final class Notifier: NSObject {
     /// Returns the page's answer, "sent" on success.
     var onReply: ((UUID, String, String, String) async -> String)?
 
+    /// The "download this language?" notification was clicked (language code).
+    var onDownloadLanguage: ((String) -> Void)?
+    /// Translates message notifications into the user's language, when set.
+    var translator: Translator?
+    private var offeredLanguages: Set<String> = []
+
     /// Account names, shown under the title once there's more than one account.
     var accountNames: [UUID: String] = [:]
     var showsAccountNames = false
@@ -49,7 +55,56 @@ final class Notifier: NSObject {
         if !tag.isEmpty { content.threadIdentifier = "\(accountID.uuidString)-\(tag)" } // groups messages per chat
         content.categoryIdentifier = Self.messageCategory
         content.userInfo = ["kind": "message", "account": accountID.uuidString, "id": id, "title": title]
-        post(content, identifier: "message-\(accountID.uuidString)-\(id)")
+        let identifier = "message-\(accountID.uuidString)-\(id)"
+
+        guard let translator, Translator.isAvailable, Translator.translatesNotifications else {
+            post(content, identifier: identifier)
+            return
+        }
+        Task {
+            await translateBody(of: content, with: translator)
+            post(content, identifier: identifier)
+        }
+    }
+
+    /// Puts the translation first and keeps the original under it. In groups the body is
+    /// "Sender: message", so the sender's name is left as it is.
+    private func translateBody(of content: UNMutableNotificationContent, with translator: Translator) async {
+        let body = content.body
+        var prefix = ""
+        var message = body
+        if let colon = body.range(of: ": "), body.distance(from: body.startIndex, to: colon.lowerBound) <= 40,
+           !body[..<colon.lowerBound].contains("\n") {
+            prefix = String(body[..<colon.upperBound])
+            message = String(body[colon.upperBound...])
+        }
+
+        switch await translator.translate(message) {
+        case .translated(let text):
+            content.body = "🌐 \(prefix)\(text)\n\(body)"
+        case .needsDownload(let language):
+            offerDownload(of: language)
+        default:
+            break
+        }
+    }
+
+    func showLanguageReady(_ language: Locale.Language) {
+        let content = UNMutableNotificationContent()
+        content.title = "\(Translator.displayName(language)) is ready"
+        content.body = "Messages in \(Translator.displayName(language)) will now be translated."
+        post(content, identifier: "language-ready-\(language.minimalIdentifier)")
+    }
+
+    /// Once per language per run: "Messages in German can be translated. Click to download."
+    private func offerDownload(of language: Locale.Language) {
+        guard let code = language.languageCode?.identifier, offeredLanguages.insert(code).inserted else { return }
+        let name = Translator.displayName(language)
+        let content = UNMutableNotificationContent()
+        content.title = "Translate \(name) messages?"
+        content.body = "Click to download \(name) for translation. It's done on this Mac; messages aren't sent anywhere."
+        content.userInfo = ["kind": "download-language", "language": code]
+        post(content, identifier: "download-language-\(code)")
     }
 
     func showDownloadFinished(_ file: URL) {
@@ -88,7 +143,11 @@ final class Notifier: NSObject {
     }
 
     fileprivate func handle(kind: String?, account: String?, id: String?, title: String?, path: String?,
-                            replyText: String?) async {
+                            language: String?, replyText: String?) async {
+        if kind == "download-language", let language {
+            onDownloadLanguage?(language)
+            return
+        }
         if kind == "download", let path {
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
             return
@@ -127,9 +186,11 @@ extension Notifier: UNUserNotificationCenterDelegate {
         let id = info["id"] as? String
         let title = info["title"] as? String
         let path = info["path"] as? String
+        let language = info["language"] as? String
         let replyText = (response as? UNTextInputNotificationResponse)?.userText
         Task { @MainActor in
-            await self.handle(kind: kind, account: account, id: id, title: title, path: path, replyText: replyText)
+            await self.handle(kind: kind, account: account, id: id, title: title, path: path,
+                              language: language, replyText: replyText)
             completionHandler()
         }
     }
