@@ -42,6 +42,10 @@ The website in [`docs/`](docs/index.html) is served by GitHub Pages.
 | ⌘1 | Show the window |
 | ⌃⌘F | Full screen |
 
+## License
+
+[MIT](LICENSE): free to use, change and share, as long as the copyright notice stays.
+
 ## Disclaimer
 
 SumiChat is an independent app. It isn't affiliated with, endorsed or
