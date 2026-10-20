@@ -31,6 +31,8 @@ INSTALLER_IDENTITY="${INSTALLER_IDENTITY:-$(identity "Developer ID Installer")}"
 xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1 \
   || fail "No saved notary login called \"$NOTARY_PROFILE\". See RELEASING.md, step 3."
 
+xmllint --noout docs/appcast.xml || fail "docs/appcast.xml isn't valid XML, so installed copies couldn't read it. Fix it first."
+
 # Sparkle decides what's newer by CFBundleVersion, so it must go up every release.
 LAST_BUILD="$(grep -o '<sparkle:version>[0-9]*' docs/appcast.xml | grep -o '[0-9]*$' | sort -n | tail -1 || true)"
 if [ -n "$LAST_BUILD" ] && [ "$BUILD_NUMBER" -le "$LAST_BUILD" ]; then
@@ -114,6 +116,7 @@ if [ "${1:-}" = "--publish" ]; then
     </item>
 EOF
   sed -i '' "/<!-- releases -->/r $ITEM" docs/appcast.xml
+  xmllint --noout docs/appcast.xml || fail "The new update feed isn't valid XML; not publishing it."
   git add docs/appcast.xml
   git commit -q -m "Add SumiChat $VERSION to the update feed"
   git push -q
