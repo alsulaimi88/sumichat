@@ -29,11 +29,6 @@ final class BrowserController: NSObject {
         accountID = account.id
 
         let contentController = WKUserContentController()
-        contentController.addUserScript(WKUserScript(
-            source: NotificationShim.source,
-            injectionTime: .atDocumentStart,
-            forMainFrameOnly: true
-        ))
 
         let config = WKWebViewConfiguration()
         config.websiteDataStore = account.dataStore // keeps this account logged in between launches
@@ -57,6 +52,7 @@ final class BrowserController: NSObject {
         }
         webView.navigationDelegate = self
         webView.uiDelegate = self
+        applyTheme(.current)
 
         titleObservation = webView.observe(\.title, options: [.new]) { [weak self] webView, _ in
             let title = webView.title ?? ""
@@ -74,6 +70,38 @@ final class BrowserController: NSObject {
         } else {
             webView.reload()
         }
+    }
+
+    /// Repaints the page with `theme` now, and for every later page load. Also sets the page's
+    /// light/dark mode, which WhatsApp follows when its own theme is "System default".
+    func applyTheme(_ theme: Theme) {
+        webView.appearance = theme.isOriginal ? nil : NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+        let controller = webView.configuration.userContentController
+        controller.removeAllUserScripts()
+        controller.addUserScript(WKUserScript(source: NotificationShim.source, injectionTime: .atDocumentStart,
+                                              forMainFrameOnly: true))
+        let script = Self.themeScript(theme.css)
+        controller.addUserScript(WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        webView.evaluateJavaScript(script)
+    }
+
+    /// Puts the CSS in a <style id="sumi-theme"> at the end of the page's styles (or removes it).
+    private static func themeScript(_ css: String) -> String {
+        let literal = (try? JSONEncoder().encode(css)).flatMap { String(data: $0, encoding: .utf8) } ?? "\"\""
+        return """
+        (() => {
+          const css = \(literal);
+          const put = () => {
+            let style = document.getElementById('sumi-theme');
+            if (!css) { if (style) style.remove(); return; }
+            if (!style) { style = document.createElement('style'); style.id = 'sumi-theme'; }
+            style.textContent = css;
+            (document.head || document.documentElement).appendChild(style);
+          };
+          put();
+          document.addEventListener('DOMContentLoaded', put);
+        })();
+        """
     }
 
     /// Stops the page and lets go of everything, so the account's data can be deleted.

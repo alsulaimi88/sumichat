@@ -13,6 +13,7 @@ people send you, PDFs included.
 - Several accounts side by side (**File → New Account…**), each with its own window and login (macOS 14+)
 - Puts the unread count on the Dock icon and in the window title
 - On-device translation (macOS 26+): translated notifications, **Translate This Chat**, and a 🌐 button next to **+** that turns your message into the chat's language
+- Themes (**View → Theme**): WhatsApp Original (default), Sumi Lotus, Midnight and Lagoon, with a matching window frame
 - Lets you attach files and record voice notes
 - Stays signed in between launches; closing the window keeps it running in the Dock
 - Updates itself with one click, through [Sparkle](https://sparkle-project.org)

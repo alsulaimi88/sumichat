@@ -300,6 +300,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         show(accountWindow)
     }
 
+    @objc func setTheme(_ sender: NSMenuItem) {
+        guard let theme = Theme.all.first(where: { $0.id == sender.representedObject as? String }) else { return }
+        Theme.current = theme
+        for accountWindow in windows.values { accountWindow.applyTheme(theme) }
+    }
+
     @objc func reloadPage(_ sender: Any?) {
         currentWindow?.browser.reload()
     }
@@ -353,6 +359,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             menuItem.state = currentWindow?.browser.isTranslatingChat == true ? .on : .off
         case #selector(toggleNotificationTranslation(_:)):
             menuItem.state = Translator.translatesNotifications ? .on : .off
+        case #selector(setTheme(_:)):
+            menuItem.state = (menuItem.representedObject as? String) == Theme.current.id ? .on : .off
         case #selector(setTranslateTarget(_:)):
             let code = menuItem.representedObject as? String ?? ""
             menuItem.state = code == (Translator.targetCode ?? "") ? .on : .off

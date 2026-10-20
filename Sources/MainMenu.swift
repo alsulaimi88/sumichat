@@ -46,6 +46,17 @@ enum MainMenu {
         let view = submenu(in: main, title: "View")
         view.addItem(item("Reload", #selector(AppDelegate.reloadPage(_:)), "r", [.command], target))
         view.addItem(.separator())
+        let themes = NSMenu(title: "Theme")
+        for theme in Theme.all {
+            if theme.isOriginal { themes.addItem(.separator()) }
+            let entry = item(theme.name, #selector(AppDelegate.setTheme(_:)), "", [], target)
+            entry.representedObject = theme.id
+            themes.addItem(entry)
+        }
+        let themeItem = NSMenuItem(title: "Theme", action: nil, keyEquivalent: "")
+        themeItem.submenu = themes
+        view.addItem(themeItem)
+        view.addItem(.separator())
         view.addItem(item("Actual Size", #selector(AppDelegate.actualSize(_:)), "0", [.command], target))
         view.addItem(item("Zoom In", #selector(AppDelegate.zoomIn(_:)), "=", [.command], target))
         view.addItem(item("Zoom Out", #selector(AppDelegate.zoomOut(_:)), "-", [.command], target))
