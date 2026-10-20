@@ -1,79 +1,52 @@
 import AppKit
+import Sparkle
 
-/// Checks GitHub for a newer release once a day, and from "Check for Updates…".
+/// Updates like VS Code: Sparkle checks the feed on the website (SUFeedURL) once a day and
+/// downloads a new version quietly. When it's ready, the app shows a "Restart to Update"
+/// button; clicking it installs and relaunches. Otherwise the update installs on quit.
+/// Only updates signed with our key (SUPublicEDKey) and our Developer ID are accepted.
 @MainActor
-final class Updater {
-    static let repository = "alsulaimi88/sumichat"
-    static let installerURL = URL(string: "https://github.com/\(repository)/releases/latest/download/SumiChat.pkg")!
+final class Updater: NSObject, SPUUpdaterDelegate {
+    private var controller: SPUStandardUpdaterController!
+    private var installNow: (() -> Void)?
 
-    private static let lastCheckKey = "LastUpdateCheck"
+    /// The version that's downloaded and waiting, if any.
+    private(set) var readyVersion: String?
+    var onUpdateReady: ((String) -> Void)?
 
-    private struct Release: Decodable {
-        let tagName: String
-        enum CodingKeys: String, CodingKey { case tagName = "tag_name" }
+    override init() {
+        super.init()
+        controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: nil)
     }
 
-    private var currentVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+    func checkForUpdates() {
+        controller.checkForUpdates(nil)
     }
 
-    func checkIfDue() {
-        let last = UserDefaults.standard.double(forKey: Self.lastCheckKey)
-        if Date().timeIntervalSince1970 - last > 24 * 60 * 60 {
-            check(userInitiated: false)
+    func installAndRelaunch() {
+        installNow?()
+    }
+
+    /// `SumiChat --check-for-updates` checks quietly at launch (used to test releases).
+    func checkInBackgroundIfRequested() {
+        if CommandLine.arguments.contains("--check-for-updates") {
+            controller.updater.checkForUpdatesInBackground()
         }
     }
 
-    func check(userInitiated: Bool) {
-        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastCheckKey)
-        var request = URLRequest(url: URL(string: "https://api.github.com/repos/\(Self.repository)/releases/latest")!)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+    // MARK: SPUUpdaterDelegate
 
-        Task {
-            do {
-                let (data, response) = try await URLSession.shared.data(for: request)
-                guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
-                let latest = try JSONDecoder().decode(Release.self, from: data).tagName
-                    .trimmingCharacters(in: CharacterSet(charactersIn: "vV"))
-                if Self.isVersion(latest, newerThan: currentVersion) {
-                    offerUpdate(to: latest)
-                } else if userInitiated {
-                    showAlert("You're up to date", "SumiChat \(currentVersion) is the latest version.")
-                }
-            } catch {
-                if userInitiated {
-                    showAlert("Couldn't check for updates", "Check your internet connection and try again.")
-                }
-            }
+    /// The update is downloaded and will install on quit; returning true means we show our
+    /// own "Restart to Update" button instead of Sparkle's window.
+    nonisolated func updater(_ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem,
+                             immediateInstallationBlock immediateInstallHandler: @escaping () -> Void) -> Bool {
+        let version = item.displayVersionString
+        DispatchQueue.main.async {
+            NSLog("SumiChat: update \(version) downloaded and ready")
+            self.installNow = immediateInstallHandler
+            self.readyVersion = version
+            self.onUpdateReady?(version)
         }
-    }
-
-    private func offerUpdate(to version: String) {
-        let alert = NSAlert()
-        alert.messageText = "SumiChat \(version) is available"
-        alert.informativeText = "You have version \(currentVersion). Download the installer and open it to update. Your chats stay signed in."
-        alert.addButton(withTitle: "Download")
-        alert.addButton(withTitle: "Later")
-        if alert.runModal() == .alertFirstButtonReturn {
-            NSWorkspace.shared.open(Self.installerURL)
-        }
-    }
-
-    private func showAlert(_ title: String, _ text: String) {
-        let alert = NSAlert()
-        alert.messageText = title
-        alert.informativeText = text
-        alert.runModal()
-    }
-
-    /// "1.10" is newer than "1.9"; missing parts count as 0.
-    static func isVersion(_ a: String, newerThan b: String) -> Bool {
-        let x = a.split(separator: ".").map { Int($0) ?? 0 }
-        let y = b.split(separator: ".").map { Int($0) ?? 0 }
-        for i in 0..<max(x.count, y.count) {
-            let l = i < x.count ? x[i] : 0, r = i < y.count ? y[i] : 0
-            if l != r { return l > r }
-        }
-        return false
+        return true
     }
 }

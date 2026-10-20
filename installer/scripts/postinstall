@@ -1,0 +1,7 @@
+#!/bin/bash
+# Give the app to the signed-in user, so later one-click updates don't need an admin password.
+user="$(stat -f %Su /dev/console)"
+if [ -n "$user" ] && [ "$user" != "root" ]; then
+  chown -R "$user":staff /Applications/SumiChat.app 2>/dev/null || true
+fi
+exit 0

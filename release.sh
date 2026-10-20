@@ -2,8 +2,10 @@
 # Makes a release that opens on any Mac without "unidentified developer" warnings:
 # signs with your Developer ID certificates, has Apple notarize it, and staples the result.
 #
-#   ./release.sh            -> dist/SumiChat.dmg and dist/SumiChat.pkg, signed and notarized
-#   ./release.sh --publish  also uploads them to GitHub as release v<version>
+#   ./release.sh            -> dist/SumiChat.dmg, .pkg and the update .zip, signed and notarized
+#   ./release.sh --publish  also uploads them to GitHub as release v<version> and adds the
+#                           release to the update feed (docs/appcast.xml), so installed copies
+#                           offer the one-click update
 #
 # One-time setup (Apple Developer account, certificates, notary login): see RELEASING.md.
 set -euo pipefail
@@ -12,6 +14,8 @@ cd "$(dirname "$0")"
 APP_NAME="SumiChat"
 NOTARY_PROFILE="${NOTARY_PROFILE:-sumichat-notary}"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Resources/Info.plist)"
+BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' Resources/Info.plist)"
+SPARKLE_ACCOUNT="sumichat"  # name of the update signing key in your keychain (made by generate_keys)
 
 fail() { echo "✗ $*" >&2; exit 1; }
 
@@ -27,12 +31,19 @@ INSTALLER_IDENTITY="${INSTALLER_IDENTITY:-$(identity "Developer ID Installer")}"
 xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1 \
   || fail "No saved notary login called \"$NOTARY_PROFILE\". See RELEASING.md, step 3."
 
+# Sparkle decides what's newer by CFBundleVersion, so it must go up every release.
+LAST_BUILD="$(grep -o '<sparkle:version>[0-9]*' docs/appcast.xml | grep -o '[0-9]*$' | sort -n | tail -1 || true)"
+if [ -n "$LAST_BUILD" ] && [ "$BUILD_NUMBER" -le "$LAST_BUILD" ]; then
+  fail "CFBundleVersion is $BUILD_NUMBER but the update feed already has $LAST_BUILD. Raise it in Resources/Info.plist."
+fi
+
 if [ "${1:-}" = "--publish" ]; then
   gh release view "v$VERSION" >/dev/null 2>&1 \
     && fail "Release v$VERSION already exists on GitHub. Raise the version in Resources/Info.plist first."
+  [ -z "$(git status --porcelain)" ] || fail "Commit your changes first, so the release matches the code on GitHub."
 fi
 
-echo "Releasing SumiChat $VERSION"
+echo "Releasing SumiChat $VERSION (build $BUILD_NUMBER)"
 echo "  App signed by:       $APP_IDENTITY"
 echo "  Installer signed by: $INSTALLER_IDENTITY"
 echo
@@ -65,6 +76,13 @@ for file in "dist/$APP_NAME.pkg" "dist/$APP_NAME.dmg"; do
   xcrun stapler staple -q "$file"
 done
 
+# The archive Sparkle downloads for one-click updates, signed with the update key.
+UPDATE_ZIP="dist/$APP_NAME-$VERSION.zip"
+ditto -c -k --sequesterRsrc --keepParent "build/$APP_NAME.app" "$UPDATE_ZIP"
+SPARKLE_BIN="$(ls -d vendor/Sparkle-*/bin | tail -1)"
+UPDATE_SIGNATURE="$("$SPARKLE_BIN/sign_update" --account "$SPARKLE_ACCOUNT" "$UPDATE_ZIP")" \
+  || fail "Couldn't sign the update with the \"$SPARKLE_ACCOUNT\" key. See RELEASING.md."
+
 # 3. Ask Gatekeeper what a downloaded copy will see.
 echo
 echo "Gatekeeper check:"
@@ -78,8 +96,28 @@ echo "  Disk image: accepted"
 # 4. Optionally publish to GitHub.
 if [ "${1:-}" = "--publish" ]; then
   echo
-  gh release create "v$VERSION" "dist/$APP_NAME.dmg" "dist/$APP_NAME.pkg" \
+  REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
+  gh release create "v$VERSION" "dist/$APP_NAME.dmg" "dist/$APP_NAME.pkg" "$UPDATE_ZIP" \
     --title "SumiChat $VERSION" --generate-notes
+
+  # Add this release to the update feed, newest first, and publish the feed with the website.
+  ITEM="build/appcast-item.xml"
+  cat > "$ITEM" <<EOF
+    <item>
+      <title>SumiChat $VERSION</title>
+      <pubDate>$(LC_ALL=C date -u "+%a, %d %b %Y %H:%M:%S +0000")</pubDate>
+      <sparkle:version>$BUILD_NUMBER</sparkle:version>
+      <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <sparkle:releaseNotesLink>https://github.com/$REPO/releases/tag/v$VERSION</sparkle:releaseNotesLink>
+      <enclosure url="https://github.com/$REPO/releases/download/v$VERSION/$(basename "$UPDATE_ZIP")" $UPDATE_SIGNATURE type="application/octet-stream"/>
+    </item>
+EOF
+  sed -i '' "/<!-- releases -->/r $ITEM" docs/appcast.xml
+  git add docs/appcast.xml
+  git commit -q -m "Add SumiChat $VERSION to the update feed"
+  git push -q
+  echo "Update feed published: installed copies will offer $VERSION within a day."
 fi
 
 echo

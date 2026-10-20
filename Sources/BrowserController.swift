@@ -13,14 +13,16 @@ final class BrowserController: NSObject {
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15"
 
     let webView: WKWebView
+    let accountID: UUID
     var onUnreadCountChange: ((Int) -> Void)?
 
     private let notifier: Notifier
     private var downloadDestinations: [ObjectIdentifier: URL] = [:]
     private var titleObservation: NSKeyValueObservation?
 
-    init(notifier: Notifier) {
+    init(account: Account, notifier: Notifier) {
         self.notifier = notifier
+        accountID = account.id
 
         let contentController = WKUserContentController()
         contentController.addUserScript(WKUserScript(
@@ -30,7 +32,7 @@ final class BrowserController: NSObject {
         ))
 
         let config = WKWebViewConfiguration()
-        config.websiteDataStore = .default() // keeps you logged in between launches
+        config.websiteDataStore = account.dataStore // keeps this account logged in between launches
         config.userContentController = contentController
         config.mediaTypesRequiringUserActionForPlayback = []
         config.preferences.isElementFullscreenEnabled = true
@@ -66,9 +68,37 @@ final class BrowserController: NSObject {
         }
     }
 
+    /// Stops the page and lets go of everything, so the account's data can be deleted.
+    func tearDown() {
+        titleObservation = nil
+        webView.stopLoading()
+        webView.configuration.userContentController.removeAllScriptMessageHandlers()
+        webView.navigationDelegate = nil
+        webView.uiDelegate = nil
+        webView.loadHTMLString("", baseURL: nil)
+    }
+
     func notificationClicked(id: String) {
         guard let data = try? JSONEncoder().encode(id), let literal = String(data: data, encoding: .utf8) else { return }
         webView.evaluateJavaScript("window.__sumiNotificationClick && window.__sumiNotificationClick(\(literal))")
+    }
+
+    /// Sends `text` to the chat a notification came from, without bringing the window forward.
+    /// The page opens that chat and only sends if its name matches `chatTitle`; otherwise
+    /// nothing is sent. Returns the page's answer: "sent" on success.
+    func reply(toNotification id: String, chatTitle: String, text: String) async -> String {
+        do {
+            let result = try await webView.callAsyncJavaScript(
+                "return await window.__sumiReply(id, title, text);",
+                arguments: ["id": id, "title": chatTitle, "text": text],
+                in: nil,
+                contentWorld: .page
+            )
+            return result as? String ?? "no-answer"
+        } catch {
+            NSLog("SumiChat: reply failed: \(error.localizedDescription)")
+            return "error"
+        }
     }
 
     /// WhatsApp puts the unread count in the page title, e.g. "(2) WhatsApp Business".
@@ -229,6 +259,7 @@ extension BrowserController: WKScriptMessageHandler {
               let body = message.body as? [String: Any],
               let id = body["id"] as? String else { return }
         notifier.showMessage(
+            accountID: accountID,
             id: id,
             title: body["title"] as? String ?? "WhatsApp",
             body: body["body"] as? String ?? "",

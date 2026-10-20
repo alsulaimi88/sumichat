@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sparkle update feed. release.sh --publish adds a new <item> for each release. -->
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>SumiChat</title>
+    <link>https://alsulaimi88.github.io/sumichat/</link>
+    <description>SumiChat updates</description>
+    <language>en</language>
+    <!-- releases -->
+  </channel>
+</rss>

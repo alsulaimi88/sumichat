@@ -3,13 +3,17 @@ import AppKit
 /// The menu bar. The Edit menu matters: without it Cmd+C / Cmd+V don't work in the web view.
 @MainActor
 enum MainMenu {
-    static func build(target: AppDelegate) -> NSMenu {
+    static func build(target: AppDelegate, accounts: [Account], merged: Bool, updateReady: String?) -> NSMenu {
         let name = AppDelegate.appName
         let main = NSMenu()
 
         let app = submenu(in: main, title: name)
         app.addItem(withTitle: "About \(name)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
-        app.addItem(item("Check for Updates…", #selector(AppDelegate.checkForUpdates(_:)), "", [], target))
+        if let version = updateReady {
+            app.addItem(item("Restart to Update to \(version)", #selector(AppDelegate.restartToUpdate(_:)), "", [], target))
+        } else {
+            app.addItem(item("Check for Updates…", #selector(AppDelegate.checkForUpdates(_:)), "", [], target))
+        }
         app.addItem(.separator())
         app.addItem(withTitle: "Hide \(name)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         app.addItem(withTitle: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
@@ -19,6 +23,12 @@ enum MainMenu {
         app.addItem(withTitle: "Quit \(name)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
         let file = submenu(in: main, title: "File")
+        file.addItem(item("New Account…", #selector(AppDelegate.newAccount(_:)), "n", [.command], target))
+        file.addItem(item("Rename Account…", #selector(AppDelegate.renameAccount(_:)), "", [], target))
+        if accounts.count > 1 {
+            file.addItem(item("Remove Account…", #selector(AppDelegate.removeAccount(_:)), "", [], target))
+        }
+        file.addItem(.separator())
         file.addItem(item("Open Downloads Folder", #selector(AppDelegate.openDownloadsFolder(_:)), "l", [.command, .option], target))
         file.addItem(.separator())
         file.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
@@ -45,8 +55,19 @@ enum MainMenu {
         let window = submenu(in: main, title: "Window")
         window.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         window.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        if accounts.count > 1 {
+            window.addItem(.separator())
+            window.addItem(item(merged ? "Separate Account Windows" : "Merge Accounts into One Window",
+                                #selector(AppDelegate.toggleLayout(_:)), "", [], target))
+        }
         window.addItem(.separator())
-        window.addItem(item(name, #selector(AppDelegate.showMainWindow(_:)), "1", [.command], target))
+        // One entry per account: ⌘1, ⌘2, … bring that account's window to the front.
+        for (index, account) in accounts.enumerated() {
+            let title = accounts.count > 1 ? account.name : name
+            let entry = item(title, #selector(AppDelegate.showAccount(_:)), index < 9 ? String(index + 1) : "", [.command], target)
+            entry.tag = index
+            window.addItem(entry)
+        }
         NSApp.windowsMenu = window
 
         return main

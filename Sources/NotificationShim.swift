@@ -53,6 +53,56 @@ enum NotificationShim {
         if (n) n._fire('click');
       };
 
+      // Reply from a macOS notification: open that notification's chat (as clicking it
+      // would), check the open chat's name matches, then type and send. If anything
+      // doesn't match, nothing is sent.
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      const textOf = (el) => {
+        // Emoji are <img alt="😀"> in WhatsApp Web, so read their alt text too.
+        let out = '';
+        el.childNodes.forEach((node) => {
+          if (node.nodeType === Node.TEXT_NODE) out += node.textContent;
+          else if (node.nodeName === 'IMG') out += node.getAttribute('alt') || '';
+          else if (node.nodeType === Node.ELEMENT_NODE) out += textOf(node);
+        });
+        return out;
+      };
+      const openChatName = () => {
+        const el = document.querySelector('#main header [data-testid="conversation-info-header-chat-title"]')
+          || document.querySelector('#main header span[dir="auto"]');
+        return el ? norm(textOf(el)) : '';
+      };
+      const composer = () => document.querySelector('#main footer div[contenteditable="true"]');
+      const sendButton = () => {
+        const icon = document.querySelector('#main footer [data-icon="send"], #main footer [data-icon="wds-ic-send-filled"]');
+        return (icon && (icon.closest('button') || icon)) || document.querySelector('#main footer button[aria-label="Send"]');
+      };
+
+      window.__sumiReply = async (id, title, text) => {
+        const n = live.get(String(id));
+        const want = norm(title);
+        if (!n) return 'expired';
+        if (!want || !String(text).trim()) return 'invalid';
+
+        n._fire('click');
+        for (let i = 0; i < 40 && !(openChatName() === want && composer()); i++) await sleep(100);
+        const box = composer();
+        if (!box || openChatName() !== want) return 'wrong-chat';
+
+        box.focus();
+        document.execCommand('insertText', false, text);
+        await sleep(150);
+        if (!norm(box.textContent).includes(norm(text).slice(0, 20))) return 'not-typed';
+
+        const button = sendButton();
+        if (button) button.click();
+        else box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+
+        for (let i = 0; i < 20 && norm(box.textContent); i++) await sleep(100);
+        return norm(box.textContent) ? 'not-sent' : 'sent';
+      };
+
       Object.defineProperty(window, 'Notification', { value: NativeNotification, writable: true, configurable: true });
 
       if (navigator.permissions && navigator.permissions.query) {

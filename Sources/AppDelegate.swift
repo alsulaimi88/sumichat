@@ -1,4 +1,5 @@
 import AppKit
+import WebKit
 
 @main
 @MainActor
@@ -13,43 +14,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         app.run()
     }
 
-    private var window: NSWindow!
-    private var browser: BrowserController!
+    private var accounts: [Account] = []
+    private var windows: [UUID: AccountWindow] = [:]
+    private var lastActiveAccount: UUID?
     private let notifier = Notifier()
     private let updater = Updater()
 
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.mainMenu = MainMenu.build(target: self)
-        notifier.setUp()
+    /// All accounts as tabs in one window (the default), or one window each.
+    private enum Layout: String { case tabs, separate }
+    private var layout: Layout {
+        get { Layout(rawValue: UserDefaults.standard.string(forKey: "WindowLayout") ?? "") ?? .tabs }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "WindowLayout") }
+    }
 
-        browser = BrowserController(notifier: notifier)
-        browser.onUnreadCountChange = { [weak self] count in self?.updateUnread(count) }
-        notifier.onMessageClick = { [weak self] id in
-            self?.showMainWindow(nil)
-            self?.browser.notificationClicked(id: id)
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        notifier.setUp()
+        notifier.onMessageClick = { [weak self] accountID, id in
+            guard let self, let accountWindow = windows[accountID] else { return }
+            show(accountWindow)
+            accountWindow.browser.notificationClicked(id: id)
+        }
+        notifier.onReply = { [weak self] accountID, id, chat, text in
+            guard let accountWindow = self?.windows[accountID] else { return "no-account" }
+            return await accountWindow.browser.reply(toNotification: id, chatTitle: chat, text: text)
         }
 
-        window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1200, height: 800),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = Self.appName
-        window.minSize = NSSize(width: 720, height: 500)
-        window.isReleasedWhenClosed = false // closing just hides it; the Dock icon brings it back
-        window.contentView = browser.webView
-        window.center()
-        window.setFrameAutosaveName("MainWindow")
-        window.makeKeyAndOrderFront(nil)
-        activate()
+        updater.onUpdateReady = { [weak self] _ in self?.updateLayoutControls() }
 
-        browser.load()
-        updater.checkIfDue()
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(windowBecameKey(_:)), name: NSWindow.didBecomeKeyNotification, object: nil
+        )
+
+        accounts = AccountList.load()
+        for (index, account) in accounts.enumerated() {
+            open(account, cascadeIndex: index)
+        }
+        accountsChanged()
+        applyLayout()
+        if let primary = accounts.first.flatMap({ windows[$0.id] }) { show(primary) }
+
+        updater.checkInBackgroundIfRequested()
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        showMainWindow(nil)
+        if !flag {
+            if layout == .tabs { applyLayout() }
+            if let current = currentWindow { show(current) }
+        }
         return true
     }
 
@@ -57,12 +68,108 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         false // keep running so notifications keep arriving
     }
 
-    private func updateUnread(_ count: Int) {
-        NSApp.dockTile.badgeLabel = count > 0 ? String(count) : nil
-        window.title = count > 0 ? "\(Self.appName) (\(count))" : Self.appName
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        guard accounts.count > 1 else { return nil }
+        let menu = NSMenu()
+        for (index, account) in accounts.enumerated() {
+            let unread = windows[account.id]?.unread ?? 0
+            let item = NSMenuItem(title: unread > 0 ? "\(account.name) (\(unread))" : account.name,
+                                  action: #selector(showAccount(_:)), keyEquivalent: "")
+            item.tag = index
+            item.target = self
+            menu.addItem(item)
+        }
+        return menu
     }
 
-    private func activate() {
+    // MARK: Accounts
+
+    private func open(_ account: Account, cascadeIndex: Int) {
+        let accountWindow = AccountWindow(account: account, notifier: notifier, cascadeIndex: cascadeIndex)
+        accountWindow.onUnreadChange = { [weak self] in self?.updateDockBadge() }
+        windows[account.id] = accountWindow
+    }
+
+    /// Puts the account windows together as tabs, or apart as separate windows.
+    private func applyLayout() {
+        let ordered = accounts.compactMap { windows[$0.id] }
+        guard let first = ordered.first else { return }
+
+        switch layout {
+        case .tabs:
+            for accountWindow in ordered { accountWindow.window.tabbingMode = .preferred }
+            first.window.orderFront(nil)
+            for accountWindow in ordered.dropFirst()
+            where !(first.window.tabbedWindows ?? []).contains(accountWindow.window) {
+                first.window.addTabbedWindow(accountWindow.window, ordered: .above)
+            }
+        case .separate:
+            for (index, accountWindow) in ordered.enumerated() {
+                let window = accountWindow.window
+                if index > 0, (window.tabbedWindows?.count ?? 1) > 1 {
+                    window.moveTabToNewWindow(nil)
+                    let origin = first.window.frame.origin
+                    window.setFrameOrigin(NSPoint(x: origin.x + CGFloat(index) * 32, y: origin.y - CGFloat(index) * 32))
+                }
+                window.tabbingMode = .disallowed
+                window.orderFront(nil)
+            }
+        }
+        updateLayoutControls()
+    }
+
+    /// Refreshes the title bar buttons and the menu bar.
+    private func updateLayoutControls() {
+        let merged = layout == .tabs
+        for accountWindow in windows.values {
+            accountWindow.configureLayoutButton(merged: merged, visible: accounts.count > 1,
+                                                target: self, action: #selector(toggleLayout(_:)))
+            accountWindow.configureUpdateButton(readyVersion: updater.readyVersion,
+                                                target: self, action: #selector(restartToUpdate(_:)))
+        }
+        NSApp.mainMenu = MainMenu.build(target: self, accounts: accounts, merged: merged,
+                                        updateReady: updater.readyVersion)
+    }
+
+    /// Saves the list and refreshes everything that shows account names.
+    private func accountsChanged() {
+        AccountList.save(accounts)
+        let multiple = accounts.count > 1
+        for account in accounts {
+            windows[account.id]?.account = account
+            windows[account.id]?.showsAccountName = multiple
+        }
+        notifier.accountNames = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0.name) })
+        notifier.showsAccountNames = multiple
+        updateLayoutControls()
+        updateDockBadge()
+    }
+
+    private func updateDockBadge() {
+        let total = windows.values.reduce(0) { $0 + $1.unread }
+        NSApp.dockTile.badgeLabel = total > 0 ? String(total) : nil
+    }
+
+    /// The account in front: menu commands like Reload act on it.
+    private var currentWindow: AccountWindow? {
+        if let key = NSApp.keyWindow, let match = windows.values.first(where: { $0.window === key }) { return match }
+        if let id = lastActiveAccount, let match = windows[id] { return match }
+        return accounts.first.flatMap { windows[$0.id] }
+    }
+
+    @objc private func windowBecameKey(_ note: Notification) {
+        guard let window = note.object as? NSWindow else { return }
+        lastActiveAccount = windows.first(where: { $0.value.window === window })?.key ?? lastActiveAccount
+    }
+
+    private func show(_ accountWindow: AccountWindow) {
+        // In tab mode, an account whose tab was closed comes back as a tab of the open window.
+        if layout == .tabs, !accountWindow.window.isVisible,
+           let anchor = windows.values.first(where: { $0 !== accountWindow && $0.window.isVisible }) {
+            accountWindow.window.tabbingMode = .preferred
+            anchor.window.addTabbedWindow(accountWindow.window, ordered: .above)
+        }
+        accountWindow.window.makeKeyAndOrderFront(nil)
         if #available(macOS 14.0, *) {
             NSApp.activate()
         } else {
@@ -70,31 +177,129 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func askForName(title: String, message: String, initial: String, confirm: String) -> String? {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.addButton(withTitle: confirm)
+        alert.addButton(withTitle: "Cancel")
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        field.stringValue = initial
+        alert.accessoryView = field
+        alert.window.initialFirstResponder = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+        let name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? nil : name
+    }
+
     // MARK: Menu actions
 
-    @objc func showMainWindow(_ sender: Any?) {
-        window.makeKeyAndOrderFront(nil)
-        activate()
+    @objc func newAccount(_ sender: Any?) {
+        guard AccountList.supportsMultiple else {
+            let alert = NSAlert()
+            alert.messageText = "More accounts need macOS 14"
+            alert.informativeText = "Each account keeps its own login, which needs macOS Sonoma (14) or later."
+            alert.runModal()
+            return
+        }
+        guard let name = askForName(
+            title: "Add an account",
+            message: "Give it a name, like Business or Personal. Then scan the QR code with the phone for that account.",
+            initial: "Account \(accounts.count + 1)", confirm: "Add"
+        ) else { return }
+
+        let account = Account(id: UUID(), name: name, isPrimary: false)
+        accounts.append(account)
+        open(account, cascadeIndex: accounts.count - 1)
+        accountsChanged()
+        applyLayout()
+        if let accountWindow = windows[account.id] { show(accountWindow) }
+    }
+
+    @objc func renameAccount(_ sender: Any?) {
+        guard let current = currentWindow, let index = accounts.firstIndex(where: { $0.id == current.account.id }),
+              let name = askForName(title: "Rename account", message: "This name shows in the window title and notifications.",
+                                    initial: accounts[index].name, confirm: "Rename") else { return }
+        accounts[index].name = name
+        accountsChanged()
+    }
+
+    @objc func removeAccount(_ sender: Any?) {
+        guard let current = currentWindow, let index = accounts.firstIndex(where: { $0.id == current.account.id }) else { return }
+        let account = accounts[index]
+
+        let alert = NSAlert()
+        guard !account.isPrimary else {
+            alert.messageText = "The first account can't be removed"
+            alert.informativeText = "To sign it out, use WhatsApp's own menu (⋮ → Log out) in its window."
+            alert.runModal()
+            return
+        }
+        alert.messageText = "Remove “\(account.name)”?"
+        alert.informativeText = "This signs the account out of SumiChat and deletes its saved data on this Mac. Your chats stay on your phone."
+        alert.addButton(withTitle: "Remove")
+        alert.addButton(withTitle: "Cancel")
+        alert.buttons.first?.hasDestructiveAction = true
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        windows.removeValue(forKey: account.id)?.tearDown()
+        accounts.remove(at: index)
+        accountsChanged()
+        if let primary = accounts.first.flatMap({ windows[$0.id] }) { show(primary) }
+
+        if #available(macOS 14.0, *) {
+            // Give WebKit a moment to let go of the store before deleting it.
+            Task {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                do {
+                    try await WKWebsiteDataStore.remove(forIdentifier: account.id)
+                } catch {
+                    NSLog("SumiChat: couldn't delete data for \(account.name): \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    /// The "+" button in the tab bar.
+    @objc func newWindowForTab(_ sender: Any?) {
+        newAccount(sender)
+    }
+
+    @objc func toggleLayout(_ sender: Any?) {
+        layout = layout == .tabs ? .separate : .tabs
+        applyLayout()
+        if let current = currentWindow { show(current) }
+    }
+
+    @objc func showAccount(_ sender: NSMenuItem) {
+        guard accounts.indices.contains(sender.tag), let accountWindow = windows[accounts[sender.tag].id] else { return }
+        show(accountWindow)
     }
 
     @objc func reloadPage(_ sender: Any?) {
-        browser.reload()
+        currentWindow?.browser.reload()
     }
 
     @objc func zoomIn(_ sender: Any?) {
-        browser.webView.pageZoom = min(browser.webView.pageZoom + 0.1, 3)
+        guard let webView = currentWindow?.browser.webView else { return }
+        webView.pageZoom = min(webView.pageZoom + 0.1, 3)
     }
 
     @objc func zoomOut(_ sender: Any?) {
-        browser.webView.pageZoom = max(browser.webView.pageZoom - 0.1, 0.5)
+        guard let webView = currentWindow?.browser.webView else { return }
+        webView.pageZoom = max(webView.pageZoom - 0.1, 0.5)
     }
 
     @objc func actualSize(_ sender: Any?) {
-        browser.webView.pageZoom = 1
+        currentWindow?.browser.webView.pageZoom = 1
     }
 
     @objc func checkForUpdates(_ sender: Any?) {
-        updater.check(userInitiated: true)
+        updater.checkForUpdates()
+    }
+
+    @objc func restartToUpdate(_ sender: Any?) {
+        updater.installAndRelaunch()
     }
 
     @objc func openDownloadsFolder(_ sender: Any?) {

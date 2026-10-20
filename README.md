@@ -6,11 +6,12 @@ A Mac app that shows WhatsApp Web in its own window and downloads every file
 people send you, PDFs included.
 
 - Downloads **any** file type (PDFs, documents, spreadsheets, photos, voice notes) straight to `~/Downloads`
-- Shows macOS notifications for new messages (click one to jump to the chat)
+- Shows macOS notifications for new messages, with a **Reply** box (click one to jump to the chat)
+- Several accounts side by side (**File → New Account…**), each with its own window and login (macOS 14+)
 - Puts the unread count on the Dock icon and in the window title
 - Lets you attach files and record voice notes
 - Stays signed in between launches; closing the window keeps it running in the Dock
-- Checks once a day for a new version (or **SumiChat → Check for Updates…**)
+- Updates itself with one click, through [Sparkle](https://sparkle-project.org)
 
 Runs on Apple silicon and Intel Macs with macOS 13 or later.
 
