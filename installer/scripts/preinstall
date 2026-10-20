@@ -1,0 +1,4 @@
+#!/bin/bash
+# Quit a running copy so it can be replaced.
+pkill -x SumiChat 2>/dev/null || true
+exit 0

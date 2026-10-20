@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SumiChat — every WhatsApp file, right on your Mac</title>
+<meta name="description" content="SumiChat is a free Mac app for WhatsApp Web that downloads every file people send you, including PDFs. Signed and notarized by Apple.">
+<meta property="og:title" content="SumiChat for Mac">
+<meta property="og:description" content="WhatsApp Web in its own Mac window. Every file downloads, including PDFs.">
+<meta property="og:image" content="icon.png">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+  :root {
+    --bg: #fbfaf8;
+    --bg-soft: #f3f1ee;
+    --card: #ffffff;
+    --text: #1c1b1f;
+    --muted: #6b6772;
+    --line: #e6e2dd;
+    --green: #17a64a;
+    --green-strong: #128a3d;
+    --lotus: #c76fa6;
+    --plum: #6b2d74;
+    --shadow: 0 1px 2px rgba(20, 10, 30, .06), 0 8px 30px rgba(20, 10, 30, .08);
+    --chat-bg: #efeae2;
+    --bubble-in: #ffffff;
+    --bubble-out: #d9fdd3;
+    --sidebar: #ffffff;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121114;
+      --bg-soft: #1a191d;
+      --card: #1e1d22;
+      --text: #f2eff4;
+      --muted: #a29eaa;
+      --line: #2e2c33;
+      --green: #2fc463;
+      --green-strong: #25a853;
+      --lotus: #e7a9cf;
+      --plum: #d9a3e0;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 30px rgba(0, 0, 0, .35);
+      --chat-bg: #0c1317;
+      --bubble-in: #202c33;
+      --bubble-out: #005c4b;
+      --sidebar: #111b21;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121114; --bg-soft: #1a191d; --card: #1e1d22; --text: #f2eff4; --muted: #a29eaa;
+    --line: #2e2c33; --green: #2fc463; --green-strong: #25a853; --lotus: #e7a9cf; --plum: #d9a3e0;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 30px rgba(0, 0, 0, .35);
+    --chat-bg: #0c1317; --bubble-in: #202c33; --bubble-out: #005c4b; --sidebar: #111b21;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+  @media (max-width: 600px) { .wrap { padding: 0 16px; } }
+
+  /* Nav */
+  nav {
+    position: sticky; top: 0; z-index: 10;
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    backdrop-filter: saturate(1.6) blur(14px);
+    -webkit-backdrop-filter: saturate(1.6) blur(14px);
+    border-bottom: 1px solid var(--line);
+  }
+  nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; text-decoration: none; }
+  .brand img { width: 28px; height: 28px; }
+  nav ul { display: flex; gap: 22px; list-style: none; margin: 0; padding: 0; font-size: 15px; }
+  nav ul a { text-decoration: none; color: var(--muted); }
+  nav ul a:hover { color: var(--text); }
+  @media (max-width: 600px) { nav ul li.hide-sm { display: none; } nav ul { gap: 16px; } }
+
+  /* Hero */
+  .hero { text-align: center; padding-top: 72px; padding-bottom: 40px; }
+  .hero .icon { width: 132px; height: 132px; filter: drop-shadow(0 12px 24px rgba(107, 45, 116, .3)); }
+  h1 {
+    font-size: clamp(34px, 7vw, 68px); line-height: 1.04; letter-spacing: -0.035em;
+    margin: 28px 0 18px; font-weight: 800;
+  }
+  h1 span { background: linear-gradient(90deg, var(--green), var(--lotus)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lead { font-size: clamp(18px, 2.2vw, 21px); color: var(--muted); max-width: 640px; margin: 0 auto 32px; }
+  .buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 9px; padding: 13px 22px; border-radius: 12px;
+    font-weight: 600; font-size: 16px; text-decoration: none; transition: transform .15s, background .15s;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn.primary { background: var(--green); color: #fff; box-shadow: 0 6px 18px rgba(23, 166, 74, .3); }
+  .btn.primary:hover { background: var(--green-strong); }
+  .btn.secondary { background: var(--card); border: 1px solid var(--line); }
+  .btn.secondary:hover { background: var(--bg-soft); }
+  .btn svg { width: 18px; height: 18px; }
+  .meta { margin-top: 18px; font-size: 14px; color: var(--muted); }
+  .meta .ok { color: var(--green); font-weight: 600; }
+
+  /* App mockup */
+  .shot { margin: 56px auto 0; max-width: 940px; position: relative; }
+  .window {
+    border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow), 0 40px 80px rgba(20, 10, 30, .12);
+    background: var(--sidebar); text-align: left; font-size: 14px;
+  }
+  .titlebar { height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 14px; background: var(--bg-soft); border-bottom: 1px solid var(--line); }
+  .titlebar i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+  .titlebar i:nth-child(1) { background: #ff5f57; } .titlebar i:nth-child(2) { background: #febc2e; } .titlebar i:nth-child(3) { background: #28c840; }
+  .titlebar b { flex: 1; text-align: center; font-weight: 600; font-size: 13px; color: var(--muted); margin-right: 52px; }
+  .app { display: grid; grid-template-columns: 290px 1fr; height: 430px; }
+  .chats { border-right: 1px solid var(--line); overflow: hidden; }
+  .search { margin: 12px; padding: 8px 12px; border-radius: 8px; background: var(--bg-soft); color: var(--muted); font-size: 13px; }
+  .chat { display: flex; gap: 12px; padding: 10px 14px; align-items: center; }
+  .chat.active { background: var(--bg-soft); }
+  .avatar { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 650; flex: none; }
+  .chat .t { flex: 1; min-width: 0; }
+  .chat .n { display: flex; justify-content: space-between; font-weight: 600; }
+  .chat .n small { font-weight: 400; color: var(--muted); font-size: 12px; }
+  .chat .p { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; display: flex; justify-content: space-between; gap: 6px; }
+  .badge { background: var(--green); color: #fff; border-radius: 10px; font-size: 11px; font-weight: 700; padding: 1px 7px; }
+  .convo { background: var(--chat-bg); padding: 22px 26px; display: flex; flex-direction: column; gap: 10px; position: relative; }
+  .bubble { max-width: 70%; padding: 8px 12px; border-radius: 10px; background: var(--bubble-in); box-shadow: 0 1px 1px rgba(0, 0, 0, .08); }
+  .bubble.out { align-self: flex-end; background: var(--bubble-out); }
+  .bubble time { display: block; text-align: right; font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .file { display: flex; align-items: center; gap: 12px; background: var(--bg-soft); border-radius: 8px; padding: 10px 12px; min-width: 260px; }
+  .file .pdf { width: 34px; height: 40px; border-radius: 4px; background: #e5383b; color: #fff; font-size: 10px; font-weight: 800; display: grid; place-items: end center; padding-bottom: 5px; flex: none; }
+  .file .fn { font-weight: 600; font-size: 13px; }
+  .file .fs { font-size: 12px; color: var(--muted); }
+  .file .dl { margin-left: auto; width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--green); color: var(--green); display: grid; place-items: center; }
+  .toast {
+    position: absolute; bottom: 28px; right: 28px; width: 300px; display: flex; gap: 12px; align-items: center;
+    padding: 12px 14px; border-radius: 16px; background: color-mix(in srgb, var(--card) 88%, transparent);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    box-shadow: var(--shadow), 0 20px 40px rgba(0, 0, 0, .15); border: 1px solid var(--line); text-align: left; font-size: 13px;
+    animation: drop .6s cubic-bezier(.2, .9, .3, 1.2) .6s both;
+  }
+  .toast img { width: 36px; height: 36px; }
+  .toast b { display: block; font-size: 13px; }
+  .toast span { color: var(--muted); }
+  @keyframes drop { from { opacity: 0; transform: translateY(-14px) scale(.96); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; height: auto; }
+    .chats { display: none; }
+    .convo { min-height: 340px; padding: 18px 14px; }
+    .bubble { max-width: 88%; }
+    .file { min-width: 0; }
+    .toast { position: static; width: auto; margin: 14px 0 0; }
+    .titlebar b { margin-right: 0; }
+  }
+
+  /* Sections */
+  section { padding: 96px 0 0; }
+  .eyebrow { text-transform: uppercase; letter-spacing: .12em; font-size: 13px; font-weight: 700; color: var(--lotus); }
+  h2 { font-size: clamp(30px, 4.4vw, 44px); letter-spacing: -0.025em; line-height: 1.1; margin: 10px 0 14px; }
+  .sub { color: var(--muted); max-width: 620px; margin: 0 0 40px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 22px; }
+  .card .ic { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; margin-bottom: 14px; background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green); }
+  .card .ic.pink { background: color-mix(in srgb, var(--lotus) 18%, transparent); color: var(--lotus); }
+  .card .ic svg { width: 22px; height: 22px; }
+  .card h3 { margin: 0 0 6px; font-size: 18px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  .steps { counter-reset: step; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+  .step { position: relative; padding: 22px 22px 22px 22px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; }
+  .step::before {
+    counter-increment: step; content: counter(step);
+    display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
+    background: var(--green); color: #fff; font-weight: 700; margin-bottom: 14px;
+  }
+  .step h3 { margin: 0 0 6px; font-size: 18px; }
+  .step p { margin: 0; color: var(--muted); font-size: 15px; }
+  kbd, code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .88em; background: var(--bg-soft); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+
+  .faq { max-width: 760px; }
+  details { border-bottom: 1px solid var(--line); padding: 18px 0; }
+  summary { cursor: pointer; font-weight: 600; font-size: 18px; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; color: var(--muted); font-weight: 400; font-size: 22px; line-height: 1; }
+  details[open] summary::after { content: "–"; }
+  details p { color: var(--muted); margin: 10px 0 0; }
+
+  .cta { margin: 96px 0 0; padding: 56px 24px; text-align: center; border-radius: 24px; background: linear-gradient(135deg, color-mix(in srgb, var(--green) 16%, var(--card)), color-mix(in srgb, var(--lotus) 18%, var(--card))); border: 1px solid var(--line); }
+  .cta h2 { margin-top: 0; }
+
+  footer { padding: 56px 0 48px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; flex-direction: column; gap: 10px; }
+  footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#"><img src="icon.png" alt="">SumiChat</a>
+    <ul>
+      <li class="hide-sm"><a href="#features">Features</a></li>
+      <li><a href="#install">Install</a></li>
+      <li class="hide-sm"><a href="#faq">FAQ</a></li>
+      <li><a href="https://github.com/alsulaimi88/sumichat">GitHub</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main>
+  <header class="hero wrap">
+    <img class="icon" src="icon.png" alt="SumiChat icon">
+    <h1>Every file. Every chat.<br><span>Right on your Mac.</span></h1>
+    <p class="lead">SumiChat puts WhatsApp Web in its own Mac window and downloads every file people send you. PDFs, spreadsheets, documents and voice notes go straight to your Downloads folder.</p>
+    <div class="buttons">
+      <a class="btn primary" href="https://github.com/alsulaimi88/sumichat/releases/latest/download/SumiChat.dmg">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
+        Download for Mac
+      </a>
+      <a class="btn secondary" href="https://github.com/alsulaimi88/sumichat/releases/latest/download/SumiChat.pkg">Get the installer (.pkg)</a>
+    </div>
+    <p class="meta">Free · macOS 13 or later · Apple silicon and Intel · <span class="ok">Signed and notarized by Apple</span> · <a href="https://github.com/alsulaimi88/sumichat">Open source</a></p>
+
+    <div class="shot" aria-label="SumiChat window showing a chat with a PDF and a Saved to Downloads notification">
+      <div class="window">
+        <div class="titlebar"><i></i><i></i><i></i><b>SumiChat (3)</b></div>
+        <div class="app">
+          <div class="chats">
+            <div class="search">Search or start a new chat</div>
+            <div class="chat active">
+              <div class="avatar" style="background:#3b82c4">PM</div>
+              <div class="t"><div class="n">Pool Maintenance <small>2:13 pm</small></div><div class="p">Quotation-0377.pdf</div></div>
+            </div>
+            <div class="chat">
+              <div class="avatar" style="background:#c76fa6">VG</div>
+              <div class="t"><div class="n">Villa Guests <small>1:40 pm</small></div><div class="p">Check-in at 3, thank you! <span class="badge">2</span></div></div>
+            </div>
+            <div class="chat">
+              <div class="avatar" style="background:#d08a2e">AC</div>
+              <div class="t"><div class="n">Accountant <small>11:02 am</small></div><div class="p">Invoices-October.xlsx <span class="badge">1</span></div></div>
+            </div>
+            <div class="chat">
+              <div class="avatar" style="background:#5a9e6f">HM</div>
+              <div class="t"><div class="n">Home <small>Yesterday</small></div><div class="p">Voice message (0:17)</div></div>
+            </div>
+            <div class="chat">
+              <div class="avatar" style="background:#7a6bd1">ST</div>
+              <div class="t"><div class="n">Supplies Team <small>Friday</small></div><div class="p">Order confirmed for next week</div></div>
+            </div>
+          </div>
+          <div class="convo">
+            <div class="bubble">Here's the quotation for the pool and AC work.<time>2:12 pm</time></div>
+            <div class="bubble">
+              <div class="file">
+                <div class="pdf">PDF</div>
+                <div><div class="fn">Quotation-0377.pdf</div><div class="fs">1 page · PDF · 327 kB</div></div>
+                <div class="dl"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v11m0 0-4-4m4 4 4-4"/></svg></div>
+              </div>
+              <time>2:13 pm</time>
+            </div>
+            <div class="bubble out">Got it, thanks. I'll review it tonight.<time>2:15 pm</time></div>
+          </div>
+        </div>
+      </div>
+      <div class="toast" role="img" aria-label="Notification: Saved to Downloads, Quotation-0377.pdf">
+        <img src="icon.png" alt="">
+        <div><b>Saved to Downloads</b><span>Quotation-0377.pdf</span></div>
+      </div>
+    </div>
+  </header>
+
+  <section id="features" class="wrap">
+    <div class="eyebrow">Features</div>
+    <h2>Everything your chats need on a Mac</h2>
+    <p class="sub">The WhatsApp you already use, in a proper Mac app with no limits on what you can save.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg></div>
+        <h3>Every file downloads</h3>
+        <p>PDFs, Word, Excel, ZIPs, photos and voice notes. Nothing is blocked, and each file lands in Downloads with its real name.</p>
+      </div>
+      <div class="card">
+        <div class="ic pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></div>
+        <h3>Real Mac notifications</h3>
+        <p>New messages appear in Notification Center, grouped by chat. Click one to jump straight to that conversation.</p>
+      </div>
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="3"/><circle cx="18" cy="6" r="3" fill="currentColor"/></svg></div>
+        <h3>Unread count in the Dock</h3>
+        <p>A badge on the Dock icon shows how many messages are waiting, even when the window is closed.</p>
+      </div>
+      <div class="card">
+        <div class="ic pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.1-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"/></svg></div>
+        <h3>Attach anything</h3>
+        <p>Drag files into a chat or pick them from Finder. Record voice notes with your Mac's microphone.</p>
+      </div>
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+        <h3>Private by design</h3>
+        <p>No accounts, no tracking, no servers of ours. SumiChat talks only to WhatsApp Web, and the source code is public.</p>
+      </div>
+      <div class="card">
+        <div class="ic pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3m0 12v3M3 12h3m12 0h3"/><circle cx="12" cy="12" r="4"/></svg></div>
+        <h3>Stays signed in</h3>
+        <p>Scan the QR code once. Close the window and SumiChat keeps running in the Dock, so you never miss a message.</p>
+      </div>
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg></div>
+        <h3>Mac shortcuts</h3>
+        <p><kbd>⌘R</kbd> reloads, <kbd>⌘=</kbd> and <kbd>⌘-</kbd> zoom, <kbd>⌥⌘L</kbd> opens Downloads, and full screen works like any Mac app.</p>
+      </div>
+      <div class="card">
+        <div class="ic pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></div>
+        <h3>Tells you about updates</h3>
+        <p>SumiChat checks once a day and lets you know when a new version is out. Updating keeps you signed in.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="install" class="wrap">
+    <div class="eyebrow">Install</div>
+    <h2>Up and running in a minute</h2>
+    <p class="sub">SumiChat is signed and notarized by Apple, so it opens like any app from the App Store. No security warnings to click through.</p>
+    <div class="steps">
+      <div class="step">
+        <h3>Download</h3>
+        <p><a href="https://github.com/alsulaimi88/sumichat/releases/latest/download/SumiChat.dmg">SumiChat.dmg</a> runs on Apple silicon and Intel Macs with macOS 13 or later.</p>
+      </div>
+      <div class="step">
+        <h3>Drag to Applications</h3>
+        <p>Open the disk image and drag SumiChat onto the Applications folder. Prefer a guided setup? Use the <a href="https://github.com/alsulaimi88/sumichat/releases/latest/download/SumiChat.pkg">installer</a>.</p>
+      </div>
+      <div class="step">
+        <h3>Link your phone</h3>
+        <p>Open SumiChat and scan the QR code. On your phone, go to WhatsApp → <b>Settings → Linked devices → Link a device</b>.</p>
+      </div>
+      <div class="step">
+        <h3>Allow notifications</h3>
+        <p>Click <b>Allow</b> when macOS asks, so new messages show up even when SumiChat is in the background.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" class="wrap">
+    <div class="eyebrow">Questions</div>
+    <h2>Good to know</h2>
+    <div class="faq">
+      <details>
+        <summary>Is SumiChat made by WhatsApp?</summary>
+        <p>No. SumiChat is an independent app. It shows the official WhatsApp Web inside a Mac window and isn't affiliated with or endorsed by WhatsApp or Meta.</p>
+      </details>
+      <details>
+        <summary>Is it safe?</summary>
+        <p>Your messages stay end-to-end encrypted exactly as they are on web.whatsapp.com, because that's what SumiChat loads. The app has no servers and collects nothing. It's signed and notarized by Apple, and anyone can read the source code on GitHub.</p>
+      </details>
+      <details>
+        <summary>Does it work with WhatsApp Business?</summary>
+        <p>Yes. Any WhatsApp or WhatsApp Business account that can link a device works.</p>
+      </details>
+      <details>
+        <summary>Where do downloaded files go?</summary>
+        <p>To your Downloads folder, with their original names. If a file with the same name is already there, the new one gets a number, like <code>Quote (1).pdf</code>. Click the "Saved to Downloads" notification to see the file in Finder.</p>
+      </details>
+      <details>
+        <summary>How do I update?</summary>
+        <p>SumiChat tells you when a new version is out. Click Download, open the installer and follow it. You can also choose <b>SumiChat → Check for Updates…</b> at any time.</p>
+      </details>
+      <details>
+        <summary>How do I uninstall it?</summary>
+        <p>Quit SumiChat and drag it from Applications to the Trash. To also remove its saved login, delete <code>~/Library/WebKit/com.sumi.chat</code> and <code>~/Library/Caches/com.sumi.chat</code>. Unlink it from your phone under Linked devices.</p>
+      </details>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <div class="cta">
+      <h2>Never lose a file again</h2>
+      <p class="sub" style="margin: 0 auto 28px;">Free for Mac. Apple silicon and Intel.</p>
+      <div class="buttons">
+        <a class="btn primary" href="https://github.com/alsulaimi88/sumichat/releases/latest/download/SumiChat.dmg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
+          Download SumiChat
+        </a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>SumiChat · <a href="https://github.com/alsulaimi88/sumichat">Source on GitHub</a> · <a href="https://github.com/alsulaimi88/sumichat/releases">All versions</a></div>
+    <div>WhatsApp is a trademark of WhatsApp LLC. SumiChat is not affiliated with, endorsed or sponsored by WhatsApp or Meta.</div>
+  </div>
+</footer>
+
+</body>
+</html>
