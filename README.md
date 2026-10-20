@@ -5,6 +5,9 @@
 A Mac app that shows WhatsApp Web in its own window and downloads every file
 people send you, PDFs included.
 
+**🌐 Website:** <https://alsulaimi88.github.io/sumichat/>\
+**⬇️ Download:** [SumiChat.dmg](https://github.com/alsulaimi88/sumichat/releases/latest/download/SumiChat.dmg) · [installer (.pkg)](https://github.com/alsulaimi88/sumichat/releases/latest/download/SumiChat.pkg) · [all versions](https://github.com/alsulaimi88/sumichat/releases)
+
 - Downloads **any** file type (PDFs, documents, spreadsheets, photos, voice notes) straight to `~/Downloads`
 - Shows macOS notifications for new messages, with a **Reply** box (click one to jump to the chat)
 - Several accounts side by side (**File → New Account…**), each with its own window and login (macOS 14+)
