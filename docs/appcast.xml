@@ -7,5 +7,14 @@
     <description>SumiChat updates</description>
     <language>en</language>
     <!-- releases -->
+    <item>
+      <title>SumiChat 1.1</title>
+      <pubDate>Tue, 20 Oct 2026 19:51:11 +0000</pubDate>
+      <sparkle:version>2</sparkle:version>
+      <sparkle:shortVersionString>1.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <sparkle:releaseNotesLink>https://github.com/alsulaimi88/sumichat/releases/tag/v1.1</sparkle:releaseNotesLink>
+      <enclosure url="https://github.com/alsulaimi88/sumichat/releases/download/v1.1/SumiChat-1.1.zip" sparkle:edSignature="yk8UgZo1FEfjxote508fohblfO75ZvXEZmZf4/UchxY/8Snoj7NVQPsOYhnSsLKVy2y52c6eShSO8sFYn7c1DQ==" length="1561889" type="application/octet-stream"/>
+    </item>
   </channel>
 </rss>
