@@ -8,6 +8,15 @@
     <language>en</language>
     <!-- releases -->
     <item>
+      <title>SumiChat 1.2</title>
+      <pubDate>Tue, 20 Oct 2026 20:42:19 +0000</pubDate>
+      <sparkle:version>3</sparkle:version>
+      <sparkle:shortVersionString>1.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <sparkle:releaseNotesLink>https://github.com/alsulaimi88/sumichat/releases/tag/v1.2</sparkle:releaseNotesLink>
+      <enclosure url="https://github.com/alsulaimi88/sumichat/releases/download/v1.2/SumiChat-1.2.zip" sparkle:edSignature="GRi8Le/ONEJ57L+ZxNOcebMlH4OoVc5+PUwlEw3R68joh5RXjNxF+wmykTKwZZoVXifso3SmzjmfqvsnvCQqDA==" length="1737718" type="application/octet-stream"/>
+    </item>
+    <item>
       <title>SumiChat 1.1</title>
       <pubDate>Tue, 20 Oct 2026 19:51:11 +0000</pubDate>
       <sparkle:version>2</sparkle:version>
