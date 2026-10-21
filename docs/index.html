@@ -115,13 +115,33 @@
     border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow), 0 40px 80px rgba(20, 10, 30, .12);
     background: var(--sidebar); text-align: left; font-size: 14px;
   }
-  .titlebar { height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 14px; background: var(--bg-soft); border-bottom: 1px solid var(--line); }
-  .titlebar i { width: 12px; height: 12px; border-radius: 50%; display: block; }
-  .titlebar i:nth-child(1) { background: #ff5f57; } .titlebar i:nth-child(2) { background: #febc2e; } .titlebar i:nth-child(3) { background: #28c840; }
+  .titlebar { height: 38px; display: none; align-items: center; gap: 8px; padding: 0 14px; background: var(--bg-soft); border-bottom: 1px solid var(--line); }
+  .titlebar i, .lights i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+  .titlebar i:nth-child(1), .lights i:nth-child(1) { background: #ff5f57; }
+  .titlebar i:nth-child(2), .lights i:nth-child(2) { background: #febc2e; }
+  .titlebar i:nth-child(3), .lights i:nth-child(3) { background: #28c840; }
   .titlebar b { flex: 1; text-align: center; font-weight: 600; font-size: 13px; color: var(--muted); margin-right: 52px; }
-  .app { display: grid; grid-template-columns: 290px 1fr; height: 430px; }
+  .app { display: grid; grid-template-columns: 184px 272px 1fr; height: 450px; }
+  /* Mac Layout: a floating glass sidebar with the window buttons inside it. */
+  .side {
+    margin: 8px; padding: 12px 8px 10px; border-radius: 14px; display: flex; flex-direction: column; gap: 2px;
+    background: color-mix(in srgb, var(--bg-soft) 88%, transparent); font-size: 13px;
+    box-shadow: 0 0 0 .5px rgba(20, 10, 30, .08), 0 4px 16px rgba(20, 10, 30, .10);
+  }
+  .side .lights { display: flex; gap: 8px; padding: 2px 6px 14px; }
+  .side .label { font-size: 11px; font-weight: 600; color: var(--muted); padding: 2px 8px 4px; }
+  .side .row { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 8px; white-space: nowrap; }
+  .side .row.on { background: rgba(127, 127, 127, .14); font-weight: 600; }
+  .side .row svg { width: 16px; height: 16px; flex: none; }
+  .side .row .dot { width: 16px; height: 16px; border-radius: 50%; flex: none; color: #fff; font-size: 9px; font-weight: 700; display: grid; place-items: center; }
+  .side .row small { margin-left: auto; color: var(--muted); font-size: 12px; font-weight: 400; }
+  .side hr { border: 0; border-top: 1px solid var(--line); margin: 6px 4px; }
+  .side .spacer { flex: 1; }
   .chats { border-right: 1px solid var(--line); overflow: hidden; }
-  .search { margin: 12px; padding: 8px 12px; border-radius: 8px; background: var(--bg-soft); color: var(--muted); font-size: 13px; }
+  .search {
+    margin: 12px; padding: 8px 14px; border-radius: 999px; background: var(--card); color: var(--muted); font-size: 13px;
+    box-shadow: 0 0 0 .5px rgba(20, 10, 30, .06), 0 2px 10px rgba(20, 10, 30, .08);
+  }
   .chat { display: flex; gap: 12px; padding: 10px 14px; align-items: center; }
   .chat.active { background: var(--bg-soft); }
   .avatar { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 650; flex: none; }
@@ -153,7 +173,8 @@
   @media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
   @media (max-width: 760px) {
     .app { grid-template-columns: 1fr; height: auto; }
-    .chats { display: none; }
+    .chats, .side { display: none; }
+    .titlebar { display: flex; }
     .convo { min-height: 340px; padding: 18px 14px; }
     .bubble { max-width: 88%; }
     .file { min-width: 0; }
@@ -280,7 +301,7 @@
 <main>
   <header class="hero wrap">
     <img class="icon" src="icon.png" alt="SumiChat icon"><br>
-    <a class="pill" href="#themes"><b>NEW</b> Themes in SumiChat 1.3, plus on-device translation →</a>
+    <a class="pill" href="#mac-layout"><b>NEW</b> Mac Layout in SumiChat 1.4: a glass sidebar like a native Mac app →</a>
     <h1>Every file. Every chat.<br><span>Right on your Mac.</span></h1>
     <p class="lead">SumiChat puts WhatsApp Web in its own Mac window and downloads every file people send you. PDFs, spreadsheets, documents and voice notes go straight to your Downloads folder.</p>
     <div class="buttons">
@@ -292,10 +313,23 @@
     </div>
     <p class="meta">Free · macOS 13 or later · Apple silicon and Intel · <span class="ok">Signed and notarized by Apple</span> · <a href="https://github.com/alsulaimi88/sumichat">Open source</a></p>
 
-    <div class="shot" aria-label="SumiChat window showing a chat with a PDF and a Saved to Downloads notification">
+    <div class="shot" aria-label="SumiChat window with its glass sidebar, showing a chat with a PDF and a Saved to Downloads notification">
       <div class="window">
         <div class="titlebar"><i></i><i></i><i></i><b>SumiChat (3)</b></div>
         <div class="app">
+          <div class="side" aria-hidden="true">
+            <div class="lights"><i></i><i></i><i></i></div>
+            <div class="label">Accounts</div>
+            <div class="row on"><span class="dot" style="background:#17a64a">B</span>Business<small>3</small></div>
+            <div class="row"><span class="dot" style="background:#3b82c4">P</span>Personal</div>
+            <hr>
+            <div class="row on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3 21l2-5.6A8.4 8.4 0 1 1 21 11.5z"/></svg>Chats<small>3</small></div>
+            <div class="row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>Calls</div>
+            <div class="row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="3 3"><circle cx="12" cy="12" r="9"/></svg>Status</div>
+            <div class="row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5M15 14.5c3 0 6 1.5 6 4.5"/></svg>Communities</div>
+            <div class="spacer"></div>
+            <div class="row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</div>
+          </div>
           <div class="chats">
             <div class="search">Search or start a new chat</div>
             <div class="chat active">
@@ -407,10 +441,15 @@
         <h3>Reply from notifications</h3>
         <p>New messages appear in Notification Center, grouped by chat. Type a reply right in the banner, or click to jump to the conversation.</p>
       </div>
+      <div class="card" id="mac-layout">
+        <div class="ic pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="16" rx="3"/><rect x="5" y="6.5" width="5" height="11" rx="1.5"/></svg></div>
+        <h3>Mac Layout</h3>
+        <p>A floating glass sidebar with WhatsApp's tabs and unread counts, the Mac system font and soft shadows, so it feels like a native Mac app. Turn it on or off under <b>View → Mac Layout</b>.</p>
+      </div>
       <div class="card">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="3"/><circle cx="18" cy="6" r="3" fill="currentColor"/></svg></div>
         <h3>All your accounts</h3>
-        <p>Keep personal and business numbers open side by side, each in its own window with its own login. The Dock badge counts them all.</p>
+        <p>Keep personal and business numbers open together, each with its own login. Switch between them from the sidebar, or give each its own window. The Dock badge counts them all.</p>
       </div>
       <div class="card" id="themes">
         <div class="ic pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 1 9-9c0 2.5-2 3.5-4 3.5h-1.5a1.5 1.5 0 0 0-1 2.6A1.7 1.7 0 0 1 12 21z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor"/><circle cx="11" cy="7.5" r="1.2" fill="currentColor"/><circle cx="16" cy="8.5" r="1.2" fill="currentColor"/></svg></div>
@@ -440,7 +479,7 @@
       <div class="card">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg></div>
         <h3>Mac shortcuts</h3>
-        <p><kbd>⌘R</kbd> reloads, <kbd>⌘=</kbd> and <kbd>⌘-</kbd> zoom, <kbd>⌥⌘L</kbd> opens Downloads, and full screen works like any Mac app.</p>
+        <p><kbd>⌘R</kbd> reloads, <kbd>⌘=</kbd> and <kbd>⌘-</kbd> zoom, <kbd>⌥⌘L</kbd> opens Downloads, <kbd>⌃⌘S</kbd> switches Mac Layout, and <kbd>⌘1</kbd>, <kbd>⌘2</kbd> pick an account.</p>
       </div>
       <div class="card">
         <div class="ic pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></div>
