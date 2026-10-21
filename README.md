@@ -13,6 +13,7 @@ people send you, PDFs included.
 - Several accounts side by side (**File → New Account…**), each with its own window and login (macOS 14+)
 - Puts the unread count on the Dock icon and in the window title
 - On-device translation (macOS 26+): translated notifications, **Translate This Chat**, and a 🌐 button next to **+** that turns your message into the chat's language
+- **Mac Layout** (**View → Mac Layout**, on by default): a floating glass sidebar (Liquid Glass on macOS 26) with WhatsApp's tabs (Chats, Calls, Status, Communities…) and unread counts, the page edge to edge under the title bar, the Mac system font, and soft shadows on the search field and message box. With several accounts merged, they're listed at the top of the sidebar instead of as tabs. If WhatsApp changes its page and the tabs can't be found, its own icon strip comes back
 - Themes (**View → Theme**): WhatsApp Original (default), Sumi Lotus, Midnight and Lagoon, with a matching window frame
 - Lets you attach files and record voice notes
 - Stays signed in between launches; closing the window keeps it running in the Dock
@@ -46,6 +47,7 @@ The website in [`docs/`](docs/index.html) is served by GitHub Pages.
 | ⌘R | Reload |
 | ⌘= / ⌘- / ⌘0 | Zoom in / out / reset |
 | ⌥⌘L | Open Downloads folder |
+| ⌃⌘S | Mac Layout on / off |
 | ⌘1 | Show the window |
 | ⌃⌘F | Full screen |
 

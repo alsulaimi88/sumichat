@@ -1,4 +1,5 @@
 import AppKit
+import WebKit
 
 /// The window for one account: its own web view, title and unread count.
 @MainActor
@@ -7,6 +8,12 @@ final class AccountWindow {
     let browser: BrowserController
     private(set) var unread = 0
     var onUnreadChange: (() -> Void)?
+    /// This account's WhatsApp profile photo address (from its Profile tab), or empty.
+    private(set) var profilePhoto = ""
+    var onProfilePhotoChange: (() -> Void)?
+    /// An account row in the sidebar was clicked.
+    var onSelectAccount: ((UUID) -> Void)?
+    private var foundTabs = false
 
     private let updateButton = PillButton()
     private let translateButton = PillPopUpButton(frame: .zero, pullsDown: true)
@@ -14,6 +21,8 @@ final class AccountWindow {
     private var theme = Theme.current
     private let titlebarButtons = NSStackView()
     private let titlebarAccessory = NSTitlebarAccessoryViewController()
+    private let content: AccountContentView
+    private var macLayout = MacLayout.isOn
 
     var account: Account { didSet { updateTitle() } }
     /// Show the account name in the title once there's more than one account.
@@ -22,6 +31,7 @@ final class AccountWindow {
     init(account: Account, notifier: Notifier, translator: Translator, cascadeIndex: Int) {
         self.account = account
         browser = BrowserController(account: account, notifier: notifier, translator: translator)
+        content = AccountContentView(webView: browser.webView)
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1200, height: 800),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -31,7 +41,7 @@ final class AccountWindow {
         window.minSize = NSSize(width: 720, height: 500)
         window.isReleasedWhenClosed = false // closing just hides it; the Dock icon brings it back
         window.tabbingIdentifier = "SumiChat" // all accounts can share one window as tabs
-        window.contentView = browser.webView
+        window.contentView = content
 
         // Pill buttons at the right of the title bar: "Restart to Update" (when an update is
         // ready), Translate, and Separate / Merge (when there's more than one account).
@@ -49,7 +59,23 @@ final class AccountWindow {
         titlebarAccessory.view = titlebarButtons
         titlebarAccessory.layoutAttribute = .trailing
         window.addTitlebarAccessoryViewController(titlebarAccessory)
+        content.sidebar.onSelect = { [weak self] item in self?.browser.selectNavItem(item) }
+        content.sidebar.onSelectAccount = { [weak self] id in self?.onSelectAccount?(id) }
+        browser.onNavChange = { [weak self] items, edge in
+            guard let self else { return }
+            content.sidebar.update(items)
+            foundTabs = items.count >= 2
+            updateSidebarVisibility()
+            content.band.set(left: edge.left ?? theme.chrome, right: edge.right, split: edge.split)
+            content.sidebar.backdrop = edge.left ?? theme.chrome
+            let photo = items.first { !$0.avatar.isEmpty }?.avatar ?? ""
+            if photo != profilePhoto {
+                profilePhoto = photo
+                onProfilePhotoChange?()
+            }
+        }
         applyTheme(theme)
+        setMacLayout(macLayout)
 
         let frameName = account.isPrimary ? "MainWindow" : "Account-\(account.id.uuidString)"
         if !window.setFrameUsingName(frameName) {
@@ -106,7 +132,8 @@ final class AccountWindow {
     func applyTheme(_ theme: Theme) {
         self.theme = theme
         browser.applyTheme(theme)
-        window.titlebarAppearsTransparent = !theme.isOriginal
+        content.sidebar.apply(theme)
+        window.titlebarAppearsTransparent = macLayout || !theme.isOriginal
         window.backgroundColor = theme.chrome
         window.appearance = theme.isOriginal ? nil : NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
 
@@ -119,6 +146,34 @@ final class AccountWindow {
         layoutButton.setText(layoutButton.title)
         styleTranslateFace()
         refreshTitlebarButtons()
+    }
+
+    /// The account rows at the top of the sidebar (empty with one account).
+    func showAccounts(_ accounts: [SidebarAccount]) {
+        content.sidebar.update(accounts: accounts)
+        updateSidebarVisibility()
+    }
+
+    /// The sidebar shows once WhatsApp's tabs are found, or whenever there are accounts to
+    /// switch between (a new account's QR code page has no tabs).
+    private func updateSidebarVisibility() {
+        content.showsSidebar = foundTabs || !content.sidebar.accounts.isEmpty
+    }
+
+    /// Mac Layout: the page fills the window under a see-through title bar, with the native
+    /// sidebar on the left (once WhatsApp's tabs are found). Off: WhatsApp Web as it comes.
+    func setMacLayout(_ on: Bool) {
+        macLayout = on
+        if on {
+            window.styleMask.insert(.fullSizeContentView)
+        } else {
+            window.styleMask.remove(.fullSizeContentView)
+        }
+        window.titlebarAppearsTransparent = on || !theme.isOriginal
+        window.titleVisibility = on ? .hidden : .visible
+        window.minSize = NSSize(width: on ? 900 : 720, height: 500)
+        content.macLayout = on
+        browser.setMacLayout(on)
     }
 
     private func styleTranslateFace() {
@@ -150,5 +205,71 @@ final class AccountWindow {
         if showsAccountName { title += " — \(account.name)" }
         if unread > 0 { title += " (\(unread))" }
         window.title = title
+    }
+}
+
+/// A window's content: the native sidebar (Mac Layout), a strip under the see-through title
+/// bar in the page's colour, and the page.
+@MainActor
+final class AccountContentView: NSView {
+    let sidebar = SidebarView()
+    let webView: WKWebView
+    let band = TitleBand()
+
+    var macLayout = false { didSet { needsLayout = true } }
+    /// Whether WhatsApp's tabs were found; without them the page keeps its own strip.
+    var showsSidebar = false { didSet { if showsSidebar != oldValue { needsLayout = true } } }
+
+    init(webView: WKWebView) {
+        self.webView = webView
+        super.init(frame: NSRect(x: 0, y: 0, width: 1200, height: 800))
+        for view in [sidebar, band, webView] as [NSView] { addSubview(view) }
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    override func layout() {
+        super.layout()
+        let titlebar = macLayout ? titlebarHeight : 0
+        let sidebarWidth = macLayout && showsSidebar ? SidebarView.width : 0
+        sidebar.isHidden = sidebarWidth == 0
+        sidebar.frame = NSRect(x: 0, y: 0, width: sidebarWidth, height: bounds.height)
+        sidebar.topInset = titlebar + 16
+        band.isHidden = titlebar == 0
+        band.frame = NSRect(x: sidebarWidth, y: bounds.height - titlebar, width: bounds.width - sidebarWidth, height: titlebar)
+        webView.frame = NSRect(x: sidebarWidth, y: 0, width: bounds.width - sidebarWidth, height: bounds.height - titlebar)
+    }
+
+    /// The title bar's height, or 0 when the page isn't under it (full screen, Mac Layout off).
+    private var titlebarHeight: CGFloat {
+        guard let window else { return 0 }
+        return max(0, bounds.height - window.contentLayoutRect.height)
+    }
+}
+
+/// The strip above the page, under the see-through title bar, in the page's own colours so
+/// the page looks like it reaches the top of the window.
+@MainActor
+final class TitleBand: NSView {
+    private var left: NSColor = .windowBackgroundColor
+    private var right: NSColor?
+    private var split: CGFloat = 0
+
+    func set(left: NSColor, right: NSColor?, split: CGFloat) {
+        guard left != self.left || right != self.right || split != self.split else { return }
+        self.left = left
+        self.right = right
+        self.split = split
+        needsDisplay = true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        left.setFill()
+        bounds.fill()
+        guard let right, split > 0, split < bounds.width else { return }
+        right.setFill()
+        NSRect(x: split, y: 0, width: bounds.width - split, height: bounds.height).fill()
+        NSColor.separatorColor.setFill() // continues the page's line between the columns
+        NSRect(x: split, y: 0, width: 1, height: bounds.height).fill()
     }
 }

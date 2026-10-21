@@ -103,7 +103,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private func open(_ account: Account, cascadeIndex: Int) {
         let accountWindow = AccountWindow(account: account, notifier: notifier, translator: translator,
                                           cascadeIndex: cascadeIndex)
-        accountWindow.onUnreadChange = { [weak self] in self?.updateDockBadge() }
+        accountWindow.onUnreadChange = { [weak self] in
+            self?.updateDockBadge()
+            self?.updateAccountRows()
+        }
+        accountWindow.onProfilePhotoChange = { [weak self] in self?.updateAccountRows() }
+        accountWindow.onSelectAccount = { [weak self] id in
+            guard let self, let target = windows[id] else { return }
+            show(target)
+        }
         windows[account.id] = accountWindow
     }
 
@@ -111,8 +119,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private func applyLayout() {
         let ordered = accounts.compactMap { windows[$0.id] }
         guard let first = ordered.first else { return }
+        let current = currentWindow ?? first
 
         switch layout {
+        case .tabs where MacLayout.isOn:
+            // One window at a time, all in the same place: the sidebar's account rows swap them
+            // (see show), so it looks like one window. macOS can't hide the tab bar of a
+            // window with several tabs, so tabs aren't used here.
+            let frame = ordered.first { $0.window.isVisible }?.window.frame ?? current.window.frame
+            for accountWindow in ordered {
+                let window = accountWindow.window
+                if (window.tabbedWindows?.count ?? 1) > 1 { window.tabGroup?.removeWindow(window) }
+                window.tabbingMode = .disallowed
+                if accountWindow !== current { window.orderOut(nil) }
+            }
+            current.window.setFrame(frame, display: true)
+            current.window.orderFront(nil)
+            // Leaving a tab group trims the tab bar's height off the window a moment later.
+            DispatchQueue.main.async { current.window.setFrame(frame, display: true) }
         case .tabs:
             for accountWindow in ordered { accountWindow.window.tabbingMode = .preferred }
             first.window.orderFront(nil)
@@ -120,13 +144,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             where !(first.window.tabbedWindows ?? []).contains(accountWindow.window) {
                 first.window.addTabbedWindow(accountWindow.window, ordered: .above)
             }
+            current.window.makeKeyAndOrderFront(nil) // adding tabs selects them; keep the same account
         case .separate:
             for (index, accountWindow) in ordered.enumerated() {
                 let window = accountWindow.window
-                if index > 0, (window.tabbedWindows?.count ?? 1) > 1 {
-                    window.moveTabToNewWindow(nil)
+                if index > 0 {
+                    if (window.tabbedWindows?.count ?? 1) > 1 { window.moveTabToNewWindow(nil) }
+                    // Fan out windows that were sharing one place (tabs, or merged in Mac Layout).
                     let origin = first.window.frame.origin
-                    window.setFrameOrigin(NSPoint(x: origin.x + CGFloat(index) * 32, y: origin.y - CGFloat(index) * 32))
+                    if window.frame.origin == origin {
+                        window.setFrameOrigin(NSPoint(x: origin.x + CGFloat(index) * 32, y: origin.y - CGFloat(index) * 32))
+                    }
                 }
                 window.tabbingMode = .disallowed
                 window.orderFront(nil)
@@ -167,6 +195,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         notifier.showsAccountNames = multiple
         updateLayoutControls()
         updateDockBadge()
+        updateAccountRows()
+    }
+
+    /// Every window's sidebar lists all accounts, with its own marked, when there's more than one.
+    private func updateAccountRows() {
+        for accountWindow in windows.values {
+            let rows = accounts.count < 2 ? [] : accounts.map { account in
+                SidebarAccount(id: account.id, name: account.name, unread: windows[account.id]?.unread ?? 0,
+                               photo: windows[account.id]?.profilePhoto ?? "",
+                               isCurrent: account.id == accountWindow.account.id)
+            }
+            accountWindow.showAccounts(rows)
+        }
     }
 
     private func updateDockBadge() {
@@ -187,8 +228,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     private func show(_ accountWindow: AccountWindow) {
-        // In tab mode, an account whose tab was closed comes back as a tab of the open window.
-        if layout == .tabs, !accountWindow.window.isVisible,
+        let visible = windows.values.first { $0 !== accountWindow && $0.window.isVisible }
+        if layout == .tabs, MacLayout.isOn, let visible {
+            // Merged in Mac Layout: this account's window takes the shown one's place, then
+            // that one hides, so the switch happens inside what looks like one window.
+            // (A full-screen window stays put; the account opens beside it.)
+            let fullScreen = visible.window.styleMask.contains(.fullScreen)
+            if !fullScreen { accountWindow.window.setFrame(visible.window.frame, display: true) }
+            accountWindow.window.makeKeyAndOrderFront(nil)
+            if !fullScreen { visible.window.orderOut(nil) }
+        } else if layout == .tabs, !MacLayout.isOn, !accountWindow.window.isVisible,
            let anchor = windows.values.first(where: { $0 !== accountWindow && $0.window.isVisible }) {
             accountWindow.window.tabbingMode = .preferred
             anchor.window.addTabbedWindow(accountWindow.window, ordered: .above)
@@ -306,6 +355,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         for accountWindow in windows.values { accountWindow.applyTheme(theme) }
     }
 
+    @objc func toggleMacLayout(_ sender: Any?) {
+        MacLayout.isOn.toggle()
+        for accountWindow in windows.values { accountWindow.setMacLayout(MacLayout.isOn) }
+        applyLayout() // merged accounts: tabs without Mac Layout, swapped windows with it
+        if let current = currentWindow { show(current) }
+    }
+
     @objc func reloadPage(_ sender: Any?) {
         currentWindow?.browser.reload()
     }
@@ -359,6 +415,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             menuItem.state = currentWindow?.browser.isTranslatingChat == true ? .on : .off
         case #selector(toggleNotificationTranslation(_:)):
             menuItem.state = Translator.translatesNotifications ? .on : .off
+        case #selector(toggleMacLayout(_:)):
+            menuItem.state = MacLayout.isOn ? .on : .off
         case #selector(setTheme(_:)):
             menuItem.state = (menuItem.representedObject as? String) == Theme.current.id ? .on : .off
         case #selector(setTranslateTarget(_:)):

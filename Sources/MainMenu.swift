@@ -56,6 +56,7 @@ enum MainMenu {
         let themeItem = NSMenuItem(title: "Theme", action: nil, keyEquivalent: "")
         themeItem.submenu = themes
         view.addItem(themeItem)
+        view.addItem(item("Mac Layout", #selector(AppDelegate.toggleMacLayout(_:)), "s", [.command, .control], target))
         view.addItem(.separator())
         view.addItem(item("Actual Size", #selector(AppDelegate.actualSize(_:)), "0", [.command], target))
         view.addItem(item("Zoom In", #selector(AppDelegate.zoomIn(_:)), "=", [.command], target))

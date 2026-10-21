@@ -20,6 +20,11 @@ struct Theme {
 
     var isOriginal: Bool { palette.isEmpty }
 
+    /// One of the palette's colours, if this theme sets it.
+    func color(_ name: String) -> NSColor? {
+        palette[name].flatMap { NSColor(css: $0) }
+    }
+
     // MARK: The themes
 
     static let sumi = Theme(

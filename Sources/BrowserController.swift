@@ -15,6 +15,11 @@ final class BrowserController: NSObject {
     let webView: WKWebView
     let accountID: UUID
     var onUnreadCountChange: ((Int) -> Void)?
+    /// WhatsApp's navigation buttons changed (for the Mac Layout sidebar), with the colour
+    /// behind the chat list.
+    var onNavChange: (([NavItem], TopEdge) -> Void)?
+    private(set) var macLayout = MacLayout.isOn
+    private var theme = Theme.current
 
     private let notifier: Notifier
     let translator: Translator
@@ -47,6 +52,7 @@ final class BrowserController: NSObject {
 
         contentController.add(self, name: "notify")
         contentController.add(self, name: "translate")
+        contentController.add(self, name: "nav")
         if Translator.isAvailable {
             contentController.add(self, name: "translateMine") // the 🌐 button in the typing bar
         }
@@ -75,14 +81,32 @@ final class BrowserController: NSObject {
     /// Repaints the page with `theme` now, and for every later page load. Also sets the page's
     /// light/dark mode, which WhatsApp follows when its own theme is "System default".
     func applyTheme(_ theme: Theme) {
+        self.theme = theme
         webView.appearance = theme.isOriginal ? nil : NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+        installScripts()
+        webView.evaluateJavaScript(Self.themeScript(theme.css))
+    }
+
+    /// Turns Mac Layout on or off in the page (system font, WhatsApp's own icon strip hidden).
+    func setMacLayout(_ on: Bool) {
+        macLayout = on
+        installScripts()
+        webView.evaluateJavaScript(MacLayout.pageScript(on: on))
+    }
+
+    /// Clicks WhatsApp's own button for a sidebar row.
+    func selectNavItem(_ item: NavItem) {
+        guard let data = try? JSONEncoder().encode(item.label), let label = String(data: data, encoding: .utf8) else { return }
+        webView.evaluateJavaScript("window.__sumiNav && window.__sumiNav.click(\(item.index), \(label))")
+    }
+
+    /// The scripts every page load gets: notifications, Mac Layout and the theme's colours.
+    private func installScripts() {
         let controller = webView.configuration.userContentController
         controller.removeAllUserScripts()
-        controller.addUserScript(WKUserScript(source: NotificationShim.source, injectionTime: .atDocumentStart,
-                                              forMainFrameOnly: true))
-        let script = Self.themeScript(theme.css)
-        controller.addUserScript(WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true))
-        webView.evaluateJavaScript(script)
+        for source in [NotificationShim.source, MacLayout.pageScript(on: macLayout), Self.themeScript(theme.css)] {
+            controller.addUserScript(WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
     }
 
     /// Puts the CSS in a <style id="sumi-theme"> at the end of the page's styles (or removes it).
@@ -135,6 +159,29 @@ final class BrowserController: NSObject {
             NSLog("SumiChat: reply failed: \(error.localizedDescription)")
             return "error"
         }
+    }
+
+    /// The page's colours along its top edge, for the strip above it: `left` up to `split`
+    /// (in points from the page's left), `right` after it.
+    struct TopEdge {
+        let left: NSColor?
+        let right: NSColor?
+        let split: CGFloat
+    }
+
+    private struct NavReport: Decodable {
+        let items: [NavItem]
+        let background: String
+        let backgroundRight: String?
+        let split: Double?
+    }
+
+    private func navChanged(_ json: String) {
+        guard let report = try? JSONDecoder().decode(NavReport.self, from: Data(json.utf8)) else { return }
+        let scale = webView.pageZoom * webView.magnification
+        onNavChange?(report.items, TopEdge(left: NSColor(css: report.background),
+                                           right: report.backgroundRight.flatMap { NSColor(css: $0) },
+                                           split: CGFloat(report.split ?? 0) * scale))
     }
 
     /// WhatsApp puts the unread count in the page title, e.g. "(2) WhatsApp Business".
@@ -302,6 +349,10 @@ extension BrowserController: WKScriptMessageHandler {
         if message.name == "translate",
            let body = message.body as? [String: Any], let texts = body["texts"] as? [String] {
             Task { await translateChatMessages(texts) }
+            return
+        }
+        if message.name == "nav", let json = message.body as? String {
+            navChanged(json)
             return
         }
         guard message.name == "notify",
